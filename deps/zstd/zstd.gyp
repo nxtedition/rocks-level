@@ -61,6 +61,13 @@
               "MACOSX_DEPLOYMENT_TARGET": "10.15"
             },
           }
+        ],
+        [
+          "OS == 'linux", {
+            "sources": [
+              "zstd/lib/decompress/huf_decompress_amd64.S",
+            ]
+          }
         ]
       ]
     }

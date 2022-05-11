@@ -63,7 +63,7 @@
           }
         ],
         [
-          "OS == 'linux", {
+          "OS == 'linux'", {
             "sources": [
               "zstd/lib/decompress/huf_decompress_amd64.S",
             ]

@@ -103,7 +103,10 @@
               # "NUMA=1",
               # "TBB=1",
             ],
-            "dependencies": ["../liburing/liburing.gyp:liburing"],
+            "dependencies": [
+              "../zstd/zstd.gyp:zstd",
+              "../liburing/liburing.gyp:liburing"
+            ],
             "cflags": [
               "-msse4.2",
               "-mpclmul",

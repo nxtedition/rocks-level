@@ -104,7 +104,6 @@
               # "TBB=1",
             ],
             "dependencies": [
-              "../zstd/zstd.gyp:zstd",
               "../liburing/liburing.gyp:liburing"
             ],
             "cflags": [

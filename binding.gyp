@@ -47,7 +47,10 @@
             "ccflags": ["-flto"],
             "cflags!": ["-fno-exceptions"],
             "cflags_cc!": ["-fno-exceptions"],
-            "ldflags": ["-flto", "-fuse-linker-plugin"]
+            "ldflags": ["-flto", "-fuse-linker-plugin"],
+            "libraries": [
+              "/usr/lib/x86_64-linux-gnu/libjemalloc_pic.a",
+            ]
           }
         ],
         [
@@ -71,7 +74,10 @@
               "GCC_ENABLE_CPP_RTTI": "YES",
               "GCC_ENABLE_CPP_EXCEPTIONS": "YES",
               "MACOSX_DEPLOYMENT_TARGET": "10.15"
-            }
+            },
+            "libraries": [
+              "/opt/homebrew/Cellar/jemalloc/5.3.0/lib/libjemalloc.dylib"
+            ],
           }
         ]
       ],

@@ -5,16 +5,24 @@
       "target_name": "rocksdb",
       "type": "static_library",
       "standalone_static_library": 1,
-      "dependencies": ["../snappy/snappy.gyp:snappy"],
+      "dependencies": [
+        "../zstd/zstd.gyp:zstd",
+      ],
       "direct_dependent_settings": { "include_dirs": ["rocksdb/include/"] },
       "defines": [
-        "SNAPPY=1",
+        "ZSTD=1",
+        "ZSTD_STATIC_LINKING_ONLY=1",
+        "ROCKSDB_JEMALLOC=1",
+        "JEMALLOC_NO_DEMANGLE=1",
         "ROCKSDB_BACKTRACE=1",
         "ROCKSDB_SUPPORT_THREAD_LOCAL=1",
         "NIOSTATS_CONTEXT=1",
         "NPERF_CONTEXT=1"
       ],
-      "include_dirs": ["rocksdb/", "rocksdb/include/"],
+      "include_dirs": [
+        "rocksdb/", 
+        "rocksdb/include/"
+      ],
       "conditions": [
         [
           "OS == 'win'",
@@ -84,8 +92,6 @@
               "ROCKSDB_RANGESYNC_PRESENT=1",
               "ROCKSDB_SCHED_GETCPU_PRESENT=1",
               "ROCKSDB_IOURING_PRESENT=1",
-              # "ROCKSDB_JEMALLOC=1",
-              # "JEMALLOC_NO_DEMANGLE=1",
               "HAVE_SSE42=1",
               "HAVE_BMI=1",
               "HAVE_LZCNT=1",
@@ -128,7 +134,11 @@
               "GCC_ENABLE_CPP_RTTI": "YES",
               "GCC_ENABLE_CPP_EXCEPTIONS": "YES",
               "MACOSX_DEPLOYMENT_TARGET": "10.15"
-            }
+            },
+            "include_dirs": [
+              "/opt/homebrew/Cellar/zstd/1.5.2/include",
+              "/opt/homebrew/Cellar/jemalloc/5.3.0/include"
+            ],
           }
         ]
       ],

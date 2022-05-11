@@ -5,7 +5,6 @@
     {
       "target_name": "zstd",
       "type": "static_library",
-      "standalone_static_library": 1,
       "include_dirs": [
         "<!(node -e \"require('nan')\")",
         "zstd/lib",
@@ -61,7 +60,6 @@
             "xcode_settings": {
               "OTHER_CPLUSPLUSFLAGS": [
                 "-mmacosx-version-min=10.15",
-                "-std=c++20",
                 "-arch x86_64",
                 "-arch arm64"
               ],
@@ -69,11 +67,6 @@
               "GCC_ENABLE_CPP_EXCEPTIONS": "YES",
               "MACOSX_DEPLOYMENT_TARGET": "10.15"
             },
-          }
-        ],
-        [
-          "OS=='linux'", {
-            "cflags_cc": [ "-std=c++20" ]
           }
         ]
       ]

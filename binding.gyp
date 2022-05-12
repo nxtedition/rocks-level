@@ -49,7 +49,7 @@
             "cflags_cc!": ["-fno-exceptions"],
             "ldflags": ["-flto", "-fuse-linker-plugin"],
             "libraries": [
-              "/usr/lib/x86_64-linux-gnu/libzstd.a",
+              "/usr/lib/x86_64-linux-gnu/libzstd_pic.a",
               "/usr/lib/x86_64-linux-gnu/libjemalloc_pic.a",
             ]
           }

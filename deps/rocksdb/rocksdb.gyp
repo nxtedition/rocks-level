@@ -11,8 +11,8 @@
       "defines": [
         "ZSTD=1",
         "ZSTD_STATIC_LINKING_ONLY=1",
-        "ROCKSDB_JEMALLOC=1",
-        "JEMALLOC_NO_DEMANGLE=1",
+        # "ROCKSDB_JEMALLOC=1",
+        # "JEMALLOC_NO_DEMANGLE=1",
         "ROCKSDB_BACKTRACE=1",
         "ROCKSDB_SUPPORT_THREAD_LOCAL=1",
         "NIOSTATS_CONTEXT=1",

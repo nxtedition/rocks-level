@@ -76,7 +76,7 @@
               "-mbmi",
               "-mlzcnt"
             ],
-            "cflags": ["-fPIC", "-fvisibility=hidden"]
+            "cflags": ["-fPIC", "-fvisibility=hidden"],
             "cflags!": ["-fno-exceptions"],
             "cflags_cc!": ["-fno-exceptions"],
           }

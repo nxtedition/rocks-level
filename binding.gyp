@@ -47,11 +47,7 @@
             "ccflags": ["-flto"],
             "cflags!": ["-fno-exceptions"],
             "cflags_cc!": ["-fno-exceptions"],
-            "ldflags": ["-flto", "-fuse-linker-plugin"],
-            "libraries": [
-              "/usr/lib/x86_64-linux-gnu/libzstd_pic.a",
-              "/usr/lib/x86_64-linux-gnu/libjemalloc_pic.a",
-            ]
+            "ldflags": ["-flto", "-fuse-linker-plugin"]
           }
         ],
         [
@@ -75,11 +71,7 @@
               "GCC_ENABLE_CPP_RTTI": "YES",
               "GCC_ENABLE_CPP_EXCEPTIONS": "YES",
               "MACOSX_DEPLOYMENT_TARGET": "10.15"
-            },
-            "libraries": [
-              "/opt/homebrew/Cellar/zstd/1.5.2/lib/libzstd.dylib",
-              "/opt/homebrew/Cellar/jemalloc/5.3.0/lib/libjemalloc.dylib"
-            ],
+            }
           }
         ]
       ],

@@ -103,6 +103,12 @@
               # "NUMA=1",
               # "TBB=1",
             ],
+            "direct_dependent_settings": {
+              "libraries": [
+                "/usr/lib/x86_64-linux-gnu/libzstd_pic.a",
+                "/usr/lib/x86_64-linux-gnu/libjemalloc_pic.a",
+              ],
+            },
             "dependencies": [
               "../liburing/liburing.gyp:liburing"
             ],
@@ -124,6 +130,12 @@
           "OS == 'mac'",
           {
             "defines": ["OS_MACOSX=1"],
+            "direct_dependent_settings": {
+              "libraries": [
+                "/opt/homebrew/Cellar/zstd/1.5.2/lib/libzstd.dylib",
+                "/opt/homebrew/Cellar/jemalloc/5.3.0/lib/libjemalloc.dylib"
+              ],
+            },
             "xcode_settings": {
               "OTHER_CPLUSPLUSFLAGS": [
                 "-mmacosx-version-min=10.15",

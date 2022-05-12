@@ -5,7 +5,9 @@
       "target_name": "rocksdb",
       "type": "static_library",
       "standalone_static_library": 1,
-      "direct_dependent_settings": { "include_dirs": ["rocksdb/include/"] },
+      "direct_dependent_settings": { 
+        "include_dirs": ["rocksdb/include/"] 
+      },
       "defines": [
         "ZSTD=1",
         "ZSTD_STATIC_LINKING_ONLY=1",

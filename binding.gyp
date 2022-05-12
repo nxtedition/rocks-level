@@ -50,7 +50,7 @@
             "ldflags": ["-flto", "-fuse-linker-plugin"],
             "libraries": [
               "/usr/lib/x86_64-linux-gnu/libjemalloc_pic.a",
-              "deps/zstd/zstd/lib/libzstd.a"
+              "<(module_root_dir)/deps/zstd/zstd/build/cmake/lib/libzstd.a"
             ]
           }
         ],
@@ -77,7 +77,8 @@
               "MACOSX_DEPLOYMENT_TARGET": "10.15"
             },
             "libraries": [
-              "/opt/homebrew/Cellar/jemalloc/5.3.0/lib/libjemalloc.dylib"
+              "/opt/homebrew/Cellar/jemalloc/5.3.0/lib/libjemalloc.dylib",
+              "<(module_root_dir)/deps/zstd/zstd/lib/libzstd.1.5.2.dylib"
             ],
           }
         ]

@@ -45,7 +45,7 @@
               "-mlzcnt"
             ],
             "ccflags": ["-flto"],
-            "cflags!": ["-fno-exceptions"],
+            "cflags!": ["-fno-exceptions", "-ftls-model=local-dynamic"],
             "cflags_cc!": ["-fno-exceptions"],
             "ldflags": ["-flto", "-fuse-linker-plugin"],
             "libraries": [

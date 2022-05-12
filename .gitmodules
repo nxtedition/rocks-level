@@ -4,6 +4,3 @@
 [submodule "deps/liburing/liburing"]
 	path = deps/liburing/liburing
 	url = https://github.com/axboe/liburing.git
-[submodule "deps/zstd/zstd"]
-	path = deps/zstd/zstd
-	url = https://github.com/facebook/zstd.git

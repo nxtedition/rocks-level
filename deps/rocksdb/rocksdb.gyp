@@ -117,8 +117,8 @@
             "ccflags": ["-flto"],
             "cflags!": ["-fno-exceptions"],
             "cflags_cc!": ["-fno-exceptions"],
-            "ldflags": ["-flto", "-fuse-linker-plugin"]
-          }
+            "ldflags": ["-flto", "-fuse-linker-plugin"],
+          },
         ],
         [
           "OS == 'mac'",

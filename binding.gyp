@@ -50,6 +50,7 @@
             "ldflags": ["-flto", "-fuse-linker-plugin"],
             "libraries": [
               "/usr/lib/x86_64-linux-gnu/libjemalloc_pic.a",
+              "deps/zstd/zstd/lib/libzstd.a"
             ]
           }
         ],

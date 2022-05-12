@@ -5,9 +5,6 @@
       "target_name": "rocksdb",
       "type": "static_library",
       "standalone_static_library": 1,
-      "dependencies": [
-        "../zstd/zstd.gyp:zstd",
-      ],
       "direct_dependent_settings": { "include_dirs": ["rocksdb/include/"] },
       "defines": [
         "ZSTD=1",
@@ -21,7 +18,8 @@
       ],
       "include_dirs": [
         "rocksdb/", 
-        "rocksdb/include/"
+        "rocksdb/include/",
+        "deps/zstd/zstd/lib"
       ],
       "conditions": [
         [

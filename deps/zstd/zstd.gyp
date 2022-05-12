@@ -5,6 +5,7 @@
     {
       "target_name": "zstd",
       "type": "static_library",
+      "standalone_static_library": 1,
       "include_dirs": [
         "<!(node -e \"require('nan')\")",
         "zstd/lib",
@@ -66,7 +67,15 @@
           "OS == 'linux'", {
             "sources": [
               "zstd/lib/decompress/huf_decompress_amd64.S",
-            ]
+            ],
+            "cflags": [
+              "-msse4.2",
+              "-mpclmul",
+              "-mavx",
+              "-mavx2",
+              "-mbmi",
+              "-mlzcnt"
+            ],
           }
         ]
       ]

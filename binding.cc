@@ -598,8 +598,14 @@ NAPI_METHOD(db_open) {
   const auto location = ToString(env, argv[1]);
   options.create_if_missing = BooleanProperty(env, argv[2], "createIfMissing").value_or(true);
   options.error_if_exists = BooleanProperty(env, argv[2], "errorIfExists").value_or(false);
-  options.compression = BooleanProperty(env, argv[2], "compression").value_or((true)) ? rocksdb::kSnappyCompression
+  options.compression = BooleanProperty(env, argv[2], "compression").value_or((true)) ? rocksdb::kZSTD
                                                                                       : rocksdb::kNoCompression;
+  if (options.compression == rocksdb::kZSTD) {
+    options.compression_opts.max_dict_bytes = 16 * 1024;
+    options.compression_opts.zstd_max_train_bytes = 16 * 1024 * 100;
+    // options.compression_opts.parallel_threads
+  }
+
   options.use_adaptive_mutex = BooleanProperty(env, argv[2], "useAdaptiveMutex").value_or(true);
   options.enable_pipelined_write = BooleanProperty(env, argv[2], "enablePipelinedWrite").value_or(true);
   options.max_background_jobs =

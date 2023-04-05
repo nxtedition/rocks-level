@@ -468,7 +468,13 @@ static void FinalizeDatabase(napi_env env, void* data, void* hint) {
   }
 }
 
+#include <liburing.h>
+#include <iostream>
+
 NAPI_METHOD(db_init) {
+	struct io_uring* new_io_uring = new struct io_uring;
+	std::cerr << "###############" << io_uring_queue_init(256, new_io_uring, 0);
+
   auto database = new Database();
   napi_add_env_cleanup_hook(env, env_cleanup_hook, database);
 
@@ -1633,12 +1639,6 @@ NAPI_METHOD(db_flush_wal) {
 
   return 0;
 }
-
-#include <liburing.h>
-#include <iostream>
-struct io_uring* new_io_uring = new struct io_uring;
-std::cerr << "###############" << io_uring_queue_init(256, new_io_uring, 0);
-
 
 
 NAPI_INIT() {

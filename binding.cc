@@ -1635,6 +1635,7 @@ NAPI_METHOD(db_flush_wal) {
 }
 
 #include <liburing.h>
+#include <iostream>
 struct io_uring* new_io_uring = new struct io_uring;
 std::cerr << "###############" << io_uring_queue_init(256, new_io_uring, 0);
 

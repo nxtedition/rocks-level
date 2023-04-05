@@ -115,9 +115,6 @@
               "/usr/lib/include",
               # "/usr/local/Cellar/jemalloc/5.3.0/include"
             ],
-            "dependencies": [
-              "../liburing/liburing.gyp:liburing"
-            ],
             "cflags": [
               "-msse4.2",
               "-mpclmul",
@@ -138,11 +135,11 @@
             "defines": ["OS_MACOSX=1"],
             "direct_dependent_settings": {
               "libraries": [
-                "/opt/homebrew/Cellar/zstd/1.5.2/lib/libzstd.a"
+                "/opt/homebrew/Cellar/zstd/1.5.4/lib/libzstd.a"
               ],
             },
             "include_dirs": [
-              "/opt/homebrew/Cellar/zstd/1.5.2/include"
+              "/opt/homebrew/Cellar/zstd/1.5.4/include"
             ],
             "xcode_settings": {
               "OTHER_CPLUSPLUSFLAGS": [

@@ -47,7 +47,8 @@
                 ]
             ],
             "dependencies": ["<(module_root_dir)/deps/rocksdb/rocksdb.gyp:rocksdb"],
-            "include_dirs": ["<!(node -e \"require('napi-macros')\")"],
+            "include_dirs": ["<!(node -e \"require('napi-macros')\")",
+              "/usr/lib/x86_64-linux-gnu/include"],
             "sources": ["binding.cc"]
         }
     ]

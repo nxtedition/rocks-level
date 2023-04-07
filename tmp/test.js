@@ -1,18 +1,7 @@
 'use strict'
 
-const test = require('tape')
-const testCommon = require('../test/common')
+const tempy = require('tempy')
+const { RocksLevel } = require('@nxtedition/rocksdb')
 
-let db
-
-test('setUp db', function (t) {
-  db = testCommon.factory({
-    walSizeLimit: 1e6
-  })
-  db.open(t.end.bind(t))
-})
-
-test('tearDown', async function (t) {
-  await db.close()
-  t.end()
-})
+const db = new RocksLevel(tempy.directory(), {})
+db.open().then(() => db.close())

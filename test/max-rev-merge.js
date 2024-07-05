@@ -18,20 +18,20 @@ test('setUp db', function (t) {
 })
 
 function makeVersion (str) {
-	const buf = Buffer.from(str)
-	return Buffer.concat([Buffer.from([buf.byteLength]), buf])
+  const buf = Buffer.from(str)
+  return Buffer.concat([Buffer.from([buf.byteLength]), buf])
 }
 
 test('max rev', async function (t) {
   const batch = db._chainedBatch()
 
-	const rev1 = '03-SuJnevw6qTIF1P-SO34j9xEGiJbQq-render'
+  const rev1 = '03-SuJnevw6qTIF1P-SO34j9xEGiJbQq-render'
   const rec1 = makeVersion(rev1)
   rec1[0] = rec1.byteLength - 1
   batch._merge('test', rec1, {
     column: db.columns.default
   })
-	const rev2 = '02-SuJnevw6qTIF1P-SO34j9xEGiJbQq-render213123213'
+  const rev2 = '02-SuJnevw6qTIF1P-SO34j9xEGiJbQq-render213123213'
   const rec2 = Buffer.from(rev2)
   rec2[0] = rec2.byteLength - 1
   batch._merge('test', rec2, {

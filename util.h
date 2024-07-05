@@ -117,6 +117,37 @@ static napi_status GetString(napi_env env, napi_value from, std::string& to) {
   return napi_ok;
 }
 
+
+static napi_status GetString(napi_env env, napi_value from, rocksdb::PinnableSlice& to) {
+  napi_valuetype type;
+  NAPI_STATUS_RETURN(napi_typeof(env, from, &type));
+
+  if (type == napi_string) {
+    size_t length = 0;
+    NAPI_STATUS_RETURN(napi_get_value_string_utf8(env, from, nullptr, 0, &length));
+		auto buf = to.GetSelf();
+    buf->resize(length, '\0');
+    NAPI_STATUS_RETURN(napi_get_value_string_utf8(env, from, buf->data(), length + 1, &length));
+		to.PinSelf();
+  } else {
+    bool isBuffer;
+    NAPI_STATUS_RETURN(napi_is_buffer(env, from, &isBuffer));
+
+    if (isBuffer) {
+      char* buf = nullptr;
+      size_t length = 0;
+      NAPI_STATUS_RETURN(napi_get_buffer_info(env, from, reinterpret_cast<void**>(&buf), &length));
+
+			// XXX: Cleanup function
+			to.PinSlice(rocksdb::Slice(buf, length), nullptr);
+    } else {
+      return napi_invalid_arg;
+    }
+  }
+
+  return napi_ok;
+}
+
 class NapiSlice : public rocksdb::Slice {
  public:
   NapiSlice() {}
@@ -208,6 +239,10 @@ static napi_status GetValue(napi_env env, napi_value value, NapiSlice& result) {
   return GetString(env, value, result);
 }
 
+static napi_status GetValue(napi_env env, napi_value value, rocksdb::PinnableSlice& result) {
+  return GetString(env, value, result);
+}
+
 static napi_status GetValue(napi_env env, napi_value value, rocksdb::ColumnFamilyHandle*& result) {
   return napi_get_value_external(env, value, reinterpret_cast<void**>(&result));
 }
@@ -269,12 +304,24 @@ static napi_status GetProperty(napi_env env,
 }
 
 template <typename T>
+napi_status Convert(napi_env env, rocksdb::PinnableSlice* s, Encoding encoding, napi_value& result) {
+  if (!s) {
+    return napi_get_null(env, &result);
+  } else if (encoding == Encoding::Buffer) {
+		auto ptr = new rocksdb::PinnableSlice(std::move(*s));
+		return napi_create_external_buffer(env, ptr->size(), const_cast<char*>(ptr->data()), Finalize<rocksdb::PinnableSlice>, ptr, &result);
+  } else if (encoding == Encoding::String) {
+    return napi_create_string_utf8(env, s->data(), s->size(), &result);
+  } else {
+    return napi_invalid_arg;
+  }
+}
+
+template <typename T>
 napi_status Convert(napi_env env, T&& s, Encoding encoding, napi_value& result) {
   if (!s) {
     return napi_get_null(env, &result);
   } else if (encoding == Encoding::Buffer) {
-    // napi_create_external_buffer would be nice but is unsafe since node
-    // buffers are not read-only.
     return napi_create_buffer_copy(env, s->size(), s->data(), nullptr, &result);
   } else if (encoding == Encoding::String) {
     return napi_create_string_utf8(env, s->data(), s->size(), &result);

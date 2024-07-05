@@ -960,6 +960,72 @@ NAPI_METHOD(db_close) {
   return 0;
 }
 
+NAPI_METHOD(db_get_many_sync) {
+  NAPI_ARGV(3);
+
+  Database* database;
+  NAPI_STATUS_THROWS(napi_get_value_external(env, argv[0], reinterpret_cast<void**>(&database)));
+
+  const auto options = argv[2];
+
+  Encoding valueEncoding = Encoding::String;
+  NAPI_STATUS_THROWS(GetProperty(env, options, "valueEncoding", valueEncoding));
+
+  bool fillCache = true;
+  NAPI_STATUS_THROWS(GetProperty(env, options, "fillCache", fillCache));
+
+  bool ignoreRangeDeletions = false;
+  NAPI_STATUS_THROWS(GetProperty(env, options, "ignoreRangeDeletions", ignoreRangeDeletions));
+
+  rocksdb::ColumnFamilyHandle* column = database->db->DefaultColumnFamily();
+  NAPI_STATUS_THROWS(GetProperty(env, options, "column", column));
+
+	rocksdb::ReadOptions readOptions;
+	readOptions.fill_cache = fillCache;
+	readOptions.ignore_range_deletions = ignoreRangeDeletions;
+
+  std::vector<rocksdb::PinnableSlice> keys;
+  {
+    uint32_t length;
+    NAPI_STATUS_THROWS(napi_get_array_length(env, argv[1], &length));
+
+    keys.resize(length);
+    for (uint32_t n = 0; n < length; n++) {
+      napi_value element;
+      NAPI_STATUS_THROWS(napi_get_element(env, argv[1], n, &element));
+      NAPI_STATUS_THROWS(GetValue(env, element, keys[n]));
+    }
+  }
+
+	const auto size = keys.size();
+
+  std::vector<rocksdb::Status> statuses;
+	std::vector<rocksdb::PinnableSlice> values;
+
+	statuses.resize(size);
+	values.resize(size);
+
+	database->db->MultiGet(readOptions, column, size, keys.data(), values.data(), statuses.data());
+
+	napi_value ret;
+	NAPI_STATUS_THROWS(napi_create_array_with_length(env, size, &ret));
+
+	for (size_t idx = 0; idx < size; idx++) {
+		napi_value element;
+		if (statuses[idx].IsNotFound()) {
+			NAPI_STATUS_THROWS(napi_get_null(env, &element));
+		} else if (statuses[idx].IsIncomplete()) {
+			NAPI_STATUS_THROWS(napi_get_undefined(env, &element));
+		} else {
+			ROCKS_STATUS_THROWS_NAPI(statuses[idx]);
+			NAPI_STATUS_THROWS(Convert(env, &values[idx], valueEncoding, element));
+		}
+		NAPI_STATUS_THROWS(napi_set_element(env, ret, static_cast<uint32_t>(idx), element));
+	}
+
+  return ret;
+}
+
 NAPI_METHOD(db_get_many) {
   NAPI_ARGV(4);
 
@@ -1672,6 +1738,7 @@ NAPI_INIT() {
   NAPI_EXPORT_FUNCTION(db_get_location);
   NAPI_EXPORT_FUNCTION(db_close);
   NAPI_EXPORT_FUNCTION(db_get_many);
+  NAPI_EXPORT_FUNCTION(db_get_many_sync);
   NAPI_EXPORT_FUNCTION(db_clear);
   NAPI_EXPORT_FUNCTION(db_get_property);
   NAPI_EXPORT_FUNCTION(db_get_latest_sequence);

@@ -18,8 +18,8 @@ test('setUp db', function (t) {
 })
 
 function makeVersion (str) {
-	const buf = Buffer.from(str)
-	return Buffer.concat([Buffer.from([buf.byteLength]), buf])
+  const buf = Buffer.from(str)
+  return Buffer.concat([Buffer.from([buf.byteLength]), buf])
 }
 
 test('test merge maxRev()', async function (t) {

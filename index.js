@@ -149,17 +149,23 @@ class RocksLevel extends AbstractLevel {
     callback = fromCallback(callback, kPromise)
 
     try {
-      this[kRef]()
-      binding.db_get_many(this[kContext], keys, options ?? EMPTY, (err, val) => {
-        callback(err, val)
-        this[kUnref]()
-      })
+      // this[kRef]()
+      // binding.db_get_many(this[kContext], keys, options ?? EMPTY, (err, val) => {
+      //   callback(err, val)
+      //   this[kUnref]()
+      // })
+      const result = binding.db_get_many_sync(this[kContext], keys, options ?? EMPTY)
+      process.nextTick(callback, null, result)
     } catch (err) {
       process.nextTick(callback, err)
-      this[kUnref]()
+      // this[kUnref]()
     }
 
     return callback[kPromise]
+  }
+
+  _getManySync (keys, options) {
+    return binding.db_get_many_sync(this[kContext], keys, options ?? EMPTY)
   }
 
   _getMergeOperands (key, options, callback) {

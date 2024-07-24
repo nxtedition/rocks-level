@@ -993,9 +993,8 @@ NAPI_METHOD(db_get_many) {
   }
 
   struct State {
-    std::vector<rocksdb::Status> statuses;
-    std::vector<rocksdb::PinnableSlice> values;
-    std::vector<rocksdb::Slice> keys;
+    uint8_t* data;
+    size_t size;
   };
 
   runAsync<State>(
@@ -1008,41 +1007,52 @@ NAPI_METHOD(db_get_many) {
         readOptions.ignore_range_deletions = ignoreRangeDeletions;
         readOptions.optimize_multiget_for_io = true;
 
-        state.statuses.resize(size);
-        state.values.resize(size);
-        state.keys.resize(size);
+        std::vector<rocksdb::Slice> keys2;
+        std::vector<rocksdb::PinnableSlice> values{size};
+        std::vector<rocksdb::Status> statuses;
 
         for (auto n = 0; n < size; n++) {
-          state.keys[n] = keys[n];
+          keys2[n] = keys[n];
         }
 
-        database->db->MultiGet(readOptions, column, size, state.keys.data(), state.values.data(),
-                               state.statuses.data());
+        database->db->MultiGet(readOptions, column, size, keys2.data(), values.data(), statuses.data());
+
+        // size_t size = 0;
+        // for (uint32_t idx = 0; idx < size; idx++) {
+        //   size += 8;
+        //   size += ((values[idx].size() + 7) / 8) * 8;
+        // }
+
+        // state.size = size;
+        // state.data = reinterpret_cast<uint8_t*>(std::aligned_alloc(8, state.size));
+
+        // auto ptr = state.data;
+
+        // for (uint32_t idx = 0; idx < size; idx++) {
+        //   const auto& status = statuses[idx];
+        //   const auto& value = values[idx];
+
+        //   if (!status.IsNotFound() && !status.ok()) {
+        //     free(state.data);
+        //     return status;
+        //   }
+
+        //   *reinterpret_cast<int32_t>(ptr) = value.size();
+        //   ptr += 8;
+
+        //   if (value.size() > 0) {
+        //     memcpy(ptr, value.data(), value.size());
+        //   }
+
+        //   ptr += (value.size() + 7) / 8 * 8;
+        // }
 
         return rocksdb::Status::OK();
       },
       [=](auto& state, auto env, auto& argv) {
         argv.resize(2);
 
-        NAPI_STATUS_RETURN(napi_create_array_with_length(env, size, &argv[1]));
-
-        for (uint32_t idx = 0; idx < size; idx++) {
-          const auto& status = state.statuses[idx];
-          const auto& value = state.values[idx];
-
-          napi_value element;
-          if (status.IsNotFound()) {
-            NAPI_STATUS_RETURN(napi_get_undefined(env, &element));
-          } else {
-            ROCKS_STATUS_RETURN_NAPI(status);
-            NAPI_STATUS_RETURN(Convert(env, &value, valueEncoding, element));
-          }
-          NAPI_STATUS_RETURN(napi_set_element(env, argv[1], idx, element));
-        }
-
-        state.statuses.clear();
-        state.values.clear();
-        state.keys.clear();
+        // NAPI_STATUS_RETURN(napi_create_external_arraybuffer(env, state.data, state.size, FinalizeFree, state.data, &argv[1]));
 
         return napi_ok;
       });

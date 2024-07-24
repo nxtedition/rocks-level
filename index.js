@@ -148,7 +148,7 @@ class RocksLevel extends AbstractLevel {
   _getMany (keys, options, callback) {
     callback = fromCallback(callback, kPromise)
 
-    const { keyEncoding } = options ?? EMPTY
+    const { keyEncoding, valueEncoding } = options ?? EMPTY
 
     if (keyEncoding !== 'buffer') {
       keys = keys.map(key => typeof key === 'string' ? Buffer.from(key) : key)
@@ -156,8 +156,27 @@ class RocksLevel extends AbstractLevel {
 
     try {
       this[kRef]()
-      binding.db_get_many(this[kContext], keys, options ?? EMPTY, (err, val) => {
-        callback(err, val)
+      binding.db_get_many(this[kContext], keys, options ?? EMPTY, (err, arrayBuffer) => {
+        // const view = new DataView(arrayBuffer)
+        // const result = []
+
+        // let offset = 0
+        // while (offset < arrayBuffer.byteLength) {
+        //   const length = view.getInt32(offset, true)
+        //   offset += 8
+
+        //   const buffer = Buffer.from(arrayBuffer, offset, length)
+
+        //   result.push(valueEncoding === 'buffer' ? buffer : buffer.toString(valueEncoding))
+
+        //   offset += length
+        //   if (offset & 0x7) {
+        //     offset |= 0x7
+        //     offset++
+        //   }
+        // }
+
+        callback(err, result)
         this[kUnref]()
       })
     } catch (err) {

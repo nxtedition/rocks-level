@@ -968,6 +968,9 @@ NAPI_METHOD(db_get_many) {
   bool takeSnapshot = true;
   NAPI_STATUS_THROWS(GetProperty(env, options, "snapshot", takeSnapshot));
 
+  Encoding valueEncoding = Encoding::String;
+  NAPI_STATUS_THROWS(GetProperty(env, options, "valueEncoding", valueEncoding));
+
   auto callback = argv[3];
 
   std::shared_ptr<const rocksdb::Snapshot> snapshot;
@@ -1036,22 +1039,77 @@ NAPI_METHOD(db_get_many) {
         return rocksdb::Status::OK();
       },
       [=](auto& state, auto env, auto& argv) {
-        argv.resize(3);
+        argv.resize(2);
 
-        if (state.sizes.size() > 0) {
-          auto sizes = std::make_unique<std::vector<int32_t>>(std::move(state.sizes));
-          NAPI_STATUS_RETURN(napi_create_external_buffer(env, sizes->size() * 4, sizes->data(), Finalize<std::vector<int32_t>>, sizes.get(), &argv[1]));
-          sizes.release();
-        } else {
-          NAPI_STATUS_RETURN(napi_get_undefined(env, &argv[1]));
-        }
+        NAPI_STATUS_RETURN(napi_create_array_with_length(env, state.sizes.size(), &argv[1]));
 
-        if (state.data.size() > 0) {
-          auto data = std::make_unique<std::vector<uint8_t>>(std::move(state.data));
-          NAPI_STATUS_RETURN(napi_create_external_buffer(env, data->size(), data->data(), Finalize<std::vector<uint8_t>>, data.get(), &argv[2]));
-          data.release();
+        if (valueEncoding == Encoding::Buffer) {
+          napi_value arraybuffer;
+          {
+            // We create one ArrayBuffer and then slice it into Buffer(s) to avoid the
+            // overhead of registering lots of finalizers which is super slow.
+            // https://github.com/nodejs/node/issues/53804
+            auto data = std::make_unique<std::vector<uint8_t>>(std::move(state.data));
+            NAPI_STATUS_RETURN(napi_create_external_arraybuffer(
+              env,
+              data->data(),
+              data->size(),
+              Finalize<std::vector<uint8_t>>,
+              data.get(),
+              &arraybuffer
+            ));
+            data.release();
+          }
+
+          auto offset = 0;
+          for (auto n = 0; n < count; n++) {
+            const auto size = state.sizes[n];
+
+            // TODO (fix): We must create Node::Buffer(s) here,
+            // but we can't because we are missing either a
+            // napi_create_buffer_from_arraybuffer or a
+            // napi_set_prototype method.
+            // https://github.com/nodejs/node/pull/54505
+            napi_value row;
+            NAPI_STATUS_RETURN(napi_create_typedarray(
+              env,
+              napi_uint8_array,
+              size,
+              arraybuffer,
+              offset,
+              &row
+            ));
+
+            NAPI_STATUS_RETURN(napi_set_element(env, argv[1], n, row));
+
+            offset += size;
+            if (offset & 0x7) {
+              offset |= 0x7;
+              offset += 1;
+            }
+          }
         } else {
-          NAPI_STATUS_RETURN(napi_get_undefined(env, &argv[2]));
+          auto ptr = reinterpret_cast<const char*>(state.data.data());
+
+          auto offset = 0;
+          for (auto n = 0; n < count; n++) {
+            const auto size = state.sizes[n];
+
+            napi_value row;
+            NAPI_STATUS_RETURN(napi_create_string_utf8(
+              env,
+              ptr + offset,
+              size,
+              &row
+            ));
+            NAPI_STATUS_RETURN(napi_set_element(env, argv[1], n, row));
+
+            offset += size;
+            if (offset & 0x7) {
+              offset |= 0x7;
+              offset += 1;
+            }
+          }
         }
 
         return napi_ok;

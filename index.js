@@ -155,40 +155,10 @@ class RocksLevel extends AbstractLevel {
   _getMany (keys, options, callback) {
     callback = fromCallback(callback, kPromise)
 
-    const { valueEncoding } = options ?? EMPTY
     try {
       this[kRef]()
-      binding.db_get_many(this[kContext], keys, options ?? EMPTY, (err, sizes, data) => {
-        if (err) {
-          callback(err)
-        } else {
-          data ??= Buffer.alloc(0)
-          sizes ??= Buffer.alloc(0)
-
-          const rows = []
-          let offset = 0
-          const sizes32 = new Int32Array(sizes.buffer, sizes.byteOffset, sizes.byteLength / 4)
-          for (let n = 0; n < sizes32.length; n++) {
-            const size = sizes32[n]
-            const encoding = valueEncoding
-            if (size < 0) {
-              rows.push(undefined)
-            } else {
-              if (!encoding || encoding === 'buffer') {
-                rows.push(data.subarray(offset, offset + size))
-              } else if (encoding === 'slice') {
-                rows.push({ buffer: data, byteOffset: offset, byteLength: size })
-              } else {
-                rows.push(data.toString(encoding, offset, offset + size))
-              }
-              offset += size
-              if (offset & 0x7) {
-                offset = (offset | 0x7) + 1
-              }
-            }
-          }
-          callback(null, rows)
-        }
+      binding.db_get_many(this[kContext], keys, options ?? EMPTY, (err, rows) => {
+        callback(err, rows)
         this[kUnref]()
       })
     } catch (err) {

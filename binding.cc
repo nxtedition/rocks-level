@@ -1497,7 +1497,7 @@ NAPI_METHOD(regex_init) {
 }
 
 NAPI_METHOD(regex_test) {
-  NAPI_ARGV(2);
+  NAPI_ARGV(4);
 
   std::regex* regex;
   NAPI_STATUS_THROWS(napi_get_value_external(env, argv[0], reinterpret_cast<void**>(&regex)));
@@ -1505,7 +1505,15 @@ NAPI_METHOD(regex_test) {
   rocksdb::Slice value;
   NAPI_STATUS_THROWS(GetValue(env, argv[1], value));
 
-  const bool match = std::regex_search(value.data(), value.data() + value.size(), *regex);
+  int offset = 0;
+  NAPI_STATUS_THROWS(GetValue(env, argv[2], offset));
+  offset = std::max(0, std::min<int>(offset, value.size()));
+
+  int length = 0;
+  NAPI_STATUS_THROWS(GetValue(env, argv[3], length));
+  length = std::max(0, std::min<int>(length, value.size() - offset));
+
+  const bool match = std::regex_search(value.data() + offset, value.data() + offset + length, *regex);
 
   napi_value result;
   NAPI_STATUS_THROWS(napi_get_boolean(env, match, &result));

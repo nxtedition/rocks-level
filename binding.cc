@@ -2006,6 +2006,220 @@ NAPI_METHOD(updates_close) {
   }
 }
 
+NAPI_METHOD(db_open_for_read_only) {
+  NAPI_ARGV(3);
+
+  Database* database;
+  NAPI_STATUS_THROWS(napi_get_value_external(env, argv[0], reinterpret_cast<void**>(&database)));
+
+  if (database->db) {
+    napi_value columns;
+    NAPI_STATUS_THROWS(napi_create_object(env, &columns));
+    for (auto& [id, column] : database->columns) {
+      napi_value val;
+      NAPI_STATUS_THROWS(napi_create_external(env, column.handle, nullptr, nullptr, &val));
+      NAPI_STATUS_THROWS(napi_set_named_property(env, columns, column.descriptor.name.c_str(), val));
+    }
+    return columns;
+  } else {
+    rocksdb::Options dbOptions;
+
+    const auto options = argv[1];
+
+    int parallelism = std::max<int>(1, std::thread::hardware_concurrency() / 2);
+    NAPI_STATUS_THROWS(GetProperty(env, options, "parallelism", parallelism));
+    dbOptions.IncreaseParallelism(parallelism);
+
+    NAPI_STATUS_THROWS(GetProperty(env, options, "walDir", dbOptions.wal_dir));
+
+    uint32_t walTTL = 0;
+    NAPI_STATUS_THROWS(GetProperty(env, options, "walTTL", walTTL));
+    dbOptions.WAL_ttl_seconds = walTTL / 1e3;
+
+    uint32_t walSizeLimit = 0;
+    NAPI_STATUS_THROWS(GetProperty(env, options, "walSizeLimit", walSizeLimit));
+    dbOptions.WAL_size_limit_MB = walSizeLimit / 1e6;
+
+    NAPI_STATUS_THROWS(GetProperty(env, options, "maxTotalWalSize", dbOptions.max_total_wal_size));
+
+    bool walCompression = true;
+    NAPI_STATUS_THROWS(GetProperty(env, options, "walCompression", walCompression));
+    dbOptions.wal_compression =
+        walCompression ? rocksdb::CompressionType::kZSTD : rocksdb::CompressionType::kNoCompression;
+
+    dbOptions.avoid_unnecessary_blocking_io = true;
+    NAPI_STATUS_THROWS(GetProperty(env, options, "avoidUnnecessaryBlockingIO", dbOptions.avoid_unnecessary_blocking_io));
+
+    dbOptions.create_missing_column_families = true;
+    NAPI_STATUS_THROWS(GetProperty(env, options, "createMissingColumnFamilies", dbOptions.create_missing_column_families));
+
+    NAPI_STATUS_THROWS(GetProperty(env, options, "writeDbIdToManifest", dbOptions.write_dbid_to_manifest));
+
+    NAPI_STATUS_THROWS(GetProperty(env, options, "failIfOptionsFileError", dbOptions.fail_if_options_file_error));
+
+    NAPI_STATUS_THROWS(GetProperty(env, options, "adviseRandomOnOpen", dbOptions.advise_random_on_open));
+
+    NAPI_STATUS_THROWS(GetProperty(env, options, "bytesPerSync", dbOptions.bytes_per_sync));
+
+    NAPI_STATUS_THROWS(GetProperty(env, options, "walBytesPerSync", dbOptions.wal_bytes_per_sync));
+
+    NAPI_STATUS_THROWS(GetProperty(env, options, "strictBytesPerSync", dbOptions.strict_bytes_per_sync));
+
+    NAPI_STATUS_THROWS(GetProperty(env, options, "delayedWriteRate", dbOptions.delayed_write_rate));
+
+    NAPI_STATUS_THROWS(GetProperty(env, options, "createIfMissing", dbOptions.create_if_missing));
+
+    NAPI_STATUS_THROWS(GetProperty(env, options, "errorIfExists", dbOptions.error_if_exists));
+
+    NAPI_STATUS_THROWS(GetProperty(env, options, "pipelinedWrite", dbOptions.enable_pipelined_write));
+
+    NAPI_STATUS_THROWS(GetProperty(env, options, "dailyOffpeakTime", dbOptions.daily_offpeak_time_utc));
+
+    NAPI_STATUS_THROWS(GetProperty(env, options, "unorderedWrite", dbOptions.unordered_write));
+
+    NAPI_STATUS_THROWS(GetProperty(env, options, "allowMmapReads", dbOptions.allow_mmap_reads));
+
+    NAPI_STATUS_THROWS(GetProperty(env, options, "allowMmapWrites", dbOptions.allow_mmap_writes));
+
+    NAPI_STATUS_THROWS(GetProperty(env, options, "memTableHugePageSize", dbOptions.memtable_huge_page_size));
+
+    NAPI_STATUS_THROWS(GetProperty(env, options, "useDirectIOReads", dbOptions.use_direct_reads));
+
+    NAPI_STATUS_THROWS(GetProperty(env, options, "useDirectIOForFlushAndCompaction", dbOptions.use_direct_io_for_flush_and_compaction));
+
+    NAPI_STATUS_THROWS(GetProperty(env, options, "compactionReadaheadSize", dbOptions.compaction_readahead_size));
+
+    // TODO (feat): dbOptions.listeners
+
+    std::string infoLogLevel;
+    NAPI_STATUS_THROWS(GetProperty(env, options, "infoLogLevel", infoLogLevel));
+    if (infoLogLevel.size() > 0) {
+      rocksdb::InfoLogLevel lvl = {};
+
+      if (infoLogLevel == "debug")
+        lvl = rocksdb::InfoLogLevel::DEBUG_LEVEL;
+      else if (infoLogLevel == "info")
+        lvl = rocksdb::InfoLogLevel::INFO_LEVEL;
+      else if (infoLogLevel == "warn")
+        lvl = rocksdb::InfoLogLevel::WARN_LEVEL;
+      else if (infoLogLevel == "error")
+        lvl = rocksdb::InfoLogLevel::ERROR_LEVEL;
+      else if (infoLogLevel == "fatal")
+        lvl = rocksdb::InfoLogLevel::FATAL_LEVEL;
+      else if (infoLogLevel == "header")
+        lvl = rocksdb::InfoLogLevel::HEADER_LEVEL;
+      else
+        napi_throw_error(env, nullptr, "invalid log level");
+
+      dbOptions.info_log_level = lvl;
+    } else {
+      // In some places RocksDB checks this option to see if it should prepare
+      // debug information (ahead of logging), so set it to the highest level.
+      dbOptions.info_log_level = rocksdb::InfoLogLevel::HEADER_LEVEL;
+      dbOptions.info_log.reset(new NullLogger());
+    }
+
+    NAPI_STATUS_THROWS(InitOptions(env, dbOptions, options));
+
+    std::vector<rocksdb::ColumnFamilyDescriptor> descriptors;
+
+    bool hasColumns;
+    NAPI_STATUS_THROWS(napi_has_named_property(env, options, "columns", &hasColumns));
+
+    if (hasColumns) {
+      napi_value columns;
+      NAPI_STATUS_THROWS(napi_get_named_property(env, options, "columns", &columns));
+
+      napi_value keys;
+      NAPI_STATUS_THROWS(napi_get_property_names(env, columns, &keys));
+
+      uint32_t len;
+      NAPI_STATUS_THROWS(napi_get_array_length(env, keys, &len));
+
+      descriptors.resize(len);
+      for (uint32_t n = 0; n < len; ++n) {
+        napi_value key;
+        NAPI_STATUS_THROWS(napi_get_element(env, keys, n, &key));
+
+        napi_value column;
+        NAPI_STATUS_THROWS(napi_get_property(env, columns, key, &column));
+
+        NAPI_STATUS_THROWS(InitOptions(env, descriptors[n].options, column));
+
+        NAPI_STATUS_THROWS(GetValue(env, key, descriptors[n].name));
+      }
+    }
+
+    auto callback = argv[2];
+
+    runAsync<std::vector<rocksdb::ColumnFamilyHandle*>>(
+        "leveldown.open_for_read_only", env, callback,
+        [=](auto& handles) {
+          assert(!database->db);
+
+          rocksdb::DB* db = nullptr;
+
+          const auto status = descriptors.empty()
+                                  ? rocksdb::DB::OpenForReadOnly(dbOptions, database->location, &db)
+                                  : rocksdb::DB::OpenForReadOnly(dbOptions, database->location, descriptors, &handles, &db);
+
+          database->db.reset(db);
+
+          return status;
+        },
+        [=](auto& handles, auto env, auto& argv) {
+          argv.resize(2);
+
+          NAPI_STATUS_RETURN(napi_create_object(env, &argv[1]));
+
+          for (size_t n = 0; n < handles.size(); ++n) {
+            ColumnFamily column;
+            column.handle = handles[n];
+            column.descriptor = descriptors[n];
+            database->columns[column.handle->GetID()] = column;
+          }
+
+          napi_value columns = argv[1];
+          for (auto& [id, column] : database->columns) {
+            napi_value val;
+            NAPI_STATUS_RETURN(napi_create_external(env, column.handle, nullptr, nullptr, &val));
+            NAPI_STATUS_RETURN(napi_set_named_property(env, columns, column.descriptor.name.c_str(), val));
+          }
+
+          return napi_ok;
+        });
+  }
+
+  return 0;
+}
+
+NAPI_METHOD(db_compact_range) {
+  NAPI_ARGV(2);
+
+  Database* database;
+  NAPI_STATUS_THROWS(napi_get_value_external(env, argv[0], reinterpret_cast<void**>(&database)));
+
+  std::optional<std::string> start;
+  std::optional<std::string> end;
+
+  NAPI_STATUS_THROWS(GetProperty(env, argv[1], "start", start));
+  NAPI_STATUS_THROWS(GetProperty(env, argv[1], "end", end));
+
+  rocksdb::CompactRangeOptions options;
+
+  rocksdb::Slice* begin = start ? new rocksdb::Slice(*start) : nullptr;
+  rocksdb::Slice* finish = end ? new rocksdb::Slice(*end) : nullptr;
+
+  rocksdb::Status status = database->db->CompactRange(options, begin, finish);
+
+  delete begin;
+  delete finish;
+
+  ROCKS_STATUS_THROWS_NAPI(status);
+
+  return 0;
+}
+
 NAPI_INIT() {
   NAPI_EXPORT_FUNCTION(db_init);
   NAPI_EXPORT_FUNCTION(db_open);
@@ -2039,4 +2253,6 @@ NAPI_INIT() {
   NAPI_EXPORT_FUNCTION(batch_merge);
   NAPI_EXPORT_FUNCTION(batch_count);
   NAPI_EXPORT_FUNCTION(batch_iterate);
+  NAPI_EXPORT_FUNCTION(db_open_for_read_only);
+  NAPI_EXPORT_FUNCTION(db_compact_range);
 }

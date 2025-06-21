@@ -294,6 +294,52 @@ class RocksLevel extends AbstractLevel {
       binding.updates_close(handle)
     }
   }
+
+  openForReadOnly (options, callback) {
+    if (callback === undefined) {
+      callback = options
+      options = {}
+    }
+    const doOpen = () => {
+      let columns
+      try {
+        columns = binding.db_open_for_read_only(this[kContext], options, (err, columns) => {
+          if (err) {
+            callback?.(err)
+          } else {
+            this[kColumns] = columns
+            const procId = setInterval(() => {
+              if (this.status === 'opening') {
+                /**
+                 * Wait until db opens
+                 */
+              } else {
+                clearInterval(procId)
+                callback?.(null)
+              }
+            }, 1)
+          }
+        })
+      } catch (err) {
+        callback?.(err)
+      }
+      if (columns) {
+        this[kColumns] = columns
+        callback?.(null)
+      }
+    }
+    doOpen()
+  }
+
+  compactRange (options = {}) {
+    if (this.status !== 'open') {
+      throw new ModuleError('Database is not open', {
+        code: 'LEVEL_DATABASE_NOT_OPEN'
+      })
+    }
+
+    return binding.db_compact_range(this[kContext], options)
+  }
 }
 
 exports.RocksLevel = RocksLevel

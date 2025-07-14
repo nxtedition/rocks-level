@@ -228,9 +228,7 @@ class RocksLevel extends AbstractLevel {
         assert(false)
       }
     }
-    batch._write(options, () => {
-      batch.close(callback);
-    })
+    batch.write(options, callback)
     return callback[kPromise]
   }
 

@@ -1146,8 +1146,6 @@ NAPI_METHOD(db_open) {
 
     NAPI_STATUS_THROWS(GetProperty(env, options, "writeDbIdToManifest", dbOptions.write_dbid_to_manifest));
 
-    NAPI_STATUS_THROWS(GetProperty(env, options, "failIfOptionsFileError", dbOptions.fail_if_options_file_error));
-
     NAPI_STATUS_THROWS(GetProperty(env, options, "adviseRandomOnOpen", dbOptions.advise_random_on_open));
 
     NAPI_STATUS_THROWS(GetProperty(env, options, "bytesPerSync", dbOptions.bytes_per_sync));
@@ -2054,8 +2052,6 @@ NAPI_METHOD(db_open_for_read_only) {
     NAPI_STATUS_THROWS(GetProperty(env, options, "createMissingColumnFamilies", dbOptions.create_missing_column_families));
 
     NAPI_STATUS_THROWS(GetProperty(env, options, "writeDbIdToManifest", dbOptions.write_dbid_to_manifest));
-
-    NAPI_STATUS_THROWS(GetProperty(env, options, "failIfOptionsFileError", dbOptions.fail_if_options_file_error));
 
     NAPI_STATUS_THROWS(GetProperty(env, options, "adviseRandomOnOpen", dbOptions.advise_random_on_open));
 

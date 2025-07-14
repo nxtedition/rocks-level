@@ -2207,15 +2207,10 @@ NAPI_METHOD(db_compact_range) {
 
   rocksdb::CompactRangeOptions options;
 
-  rocksdb::Slice* begin = start ? new rocksdb::Slice(*start) : nullptr;
-  rocksdb::Slice* finish = end ? new rocksdb::Slice(*end) : nullptr;
+  auto begin = start ? std::make_unique<rocksdb::Slice>(*start) : nullptr;
+  auto finish = end ? std::make_unique<rocksdb::Slice>(*end) : nullptr;
 
-  rocksdb::Status status = database->db->CompactRange(options, begin, finish);
-
-  delete begin;
-  delete finish;
-
-  ROCKS_STATUS_THROWS_NAPI(status);
+  ROCKS_STATUS_THROWS_NAPI(database->db->CompactRange(options, begin.get(), finish.get()));
 
   return 0;
 }

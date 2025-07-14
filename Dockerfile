@@ -7,7 +7,7 @@ RUN apt update && apt install liburing-dev cmake -y
 # Clone and build folly
 RUN apt update && apt install sudo -y
 RUN mkdir -p /opt/folly && cd /opt/folly && \
-  git clone --depth 1 --branch v2024.11.25.00 https://github.com/facebook/folly . && \
+  git clone --depth 1 --branch v2025.07.07.00 https://github.com/facebook/folly . && \
   ./build/fbcode_builder/getdeps.py install-system-deps --recursive && \
   ./build/fbcode_builder/getdeps.py build --no-tests --extra-cmake-defines='{"CMAKE_CXX_FLAGS": "-fPIC"}'
 

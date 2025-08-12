@@ -32,7 +32,7 @@ RUN cd /opt && git clone https://github.com/libunwind/libunwind.git && cd libunw
   autoreconf -i && ./configure CFLAGS="-fPIC" CXXFLAGS="-fPIC" && make && \
   cp src/.libs/libunwind.a /usr/lib/x86_64-linux-gnu/
 
-RUN cd /opt && wget https://ftp.gnu.org/gnu/binutils/binutils-2.43.tar.gz && \
+RUN cd /opt && wget https://ftpmirror.gnu.org/binutils/binutils-2.43.tar.gz && \
   tar -xvf binutils-2.43.tar.gz && \
   cd binutils-2.43/libiberty && \
   ./configure CFLAGS="-fPIC" && \

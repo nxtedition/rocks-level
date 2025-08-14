@@ -1,13 +1,19 @@
-FROM node:22.9.0
+FROM node:24.5.0-trixie
 
 ENV CMAKE_BUILD_PARALLEL_LEVEL=32 MAKEFLAGS=-j32 JOBS=32 DEBUG_LEVEL=0
 
-RUN apt update && apt install liburing-dev cmake -y
+RUN apt update && apt install liburing-dev cmake pip -y
+
+# Let pip write to system site-packages (Debian 12 + PEP 668)
+ENV PIP_BREAK_SYSTEM_PACKAGES=1
+
+RUN git clone --depth 1 --branch liburing-2.11 https://git.kernel.dk/liburing.git /tmp/liburing && \
+    cd /tmp/liburing && ./configure && make -j"$(nproc)" && make install && ldconfig
 
 # Clone and build folly
 RUN apt update && apt install sudo -y
 RUN mkdir -p /opt/folly && cd /opt/folly && \
-  git clone --depth 1 --branch v2024.11.25.00 https://github.com/facebook/folly . && \
+  git clone --depth 1 --branch v2025.08.11.00 https://github.com/facebook/folly . && \
   ./build/fbcode_builder/getdeps.py install-system-deps --recursive && \
   ./build/fbcode_builder/getdeps.py build --no-tests --extra-cmake-defines='{"CMAKE_CXX_FLAGS": "-fPIC"}'
 
@@ -74,6 +80,6 @@ RUN cd deps/rocksdb/rocksdb && make libzstd.a && \
 RUN yarn --ignore-scripts
 
 # This will build rocks-level bindings (binding.gyp)
-RUN npx prebuildify -t 22.9.0 --napi --strip --arch x64
+RUN npx prebuildify -t 24.5.0 --napi --strip --arch x64
 
 RUN yarn test-prebuild

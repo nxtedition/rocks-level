@@ -36,7 +36,7 @@ RUN cd /opt && git clone https://github.com/google/glog.git && cd glog && \
 
 RUN cd /opt && git clone https://github.com/libunwind/libunwind.git && cd libunwind && \
   autoreconf -i && ./configure CFLAGS="-fPIC" CXXFLAGS="-fPIC" && make && \
-  cp src/.libs/libunwind.a /usr/lib/x86_64-linux-gnu/
+nxttest-srv1.netbird.selfhosted  cp src/.libs/libunwind.a /usr/lib/x86_64-linux-gnu/
 
 RUN cd /opt && wget https://ftpmirror.gnu.org/binutils/binutils-2.43.tar.gz && \
   tar -xvf binutils-2.43.tar.gz && \
@@ -80,6 +80,6 @@ RUN cd deps/rocksdb/rocksdb && make libzstd.a && \
 RUN yarn --ignore-scripts
 
 # This will build rocks-level bindings (binding.gyp)
-RUN npx prebuildify -t 24.5.0 --napi --strip --arch x64
+RUN npx prebuildify -t 24.5.0 -t 22.18.0 --napi --strip --arch x64
 
 RUN yarn test-prebuild

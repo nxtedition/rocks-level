@@ -36,7 +36,7 @@ RUN cd /opt && git clone https://github.com/google/glog.git && cd glog && \
 
 RUN cd /opt && git clone https://github.com/libunwind/libunwind.git && cd libunwind && \
   autoreconf -i && ./configure CFLAGS="-fPIC" CXXFLAGS="-fPIC" && make && \
-nxttest-srv1.netbird.selfhosted  cp src/.libs/libunwind.a /usr/lib/x86_64-linux-gnu/
+  cp src/.libs/libunwind.a /usr/lib/x86_64-linux-gnu/
 
 RUN cd /opt && wget https://ftpmirror.gnu.org/binutils/binutils-2.43.tar.gz && \
   tar -xvf binutils-2.43.tar.gz && \

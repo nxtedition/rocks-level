@@ -2224,6 +2224,8 @@ NAPI_INIT() {
   NAPI_EXPORT_FUNCTION(db_get_property);
   NAPI_EXPORT_FUNCTION(db_get_latest_sequence);
   NAPI_EXPORT_FUNCTION(db_query);
+  NAPI_EXPORT_FUNCTION(db_open_for_read_only);
+  NAPI_EXPORT_FUNCTION(db_compact_range);
 
   NAPI_EXPORT_FUNCTION(iterator_init);
   NAPI_EXPORT_FUNCTION(iterator_seek);
@@ -2244,6 +2246,4 @@ NAPI_INIT() {
   NAPI_EXPORT_FUNCTION(batch_merge);
   NAPI_EXPORT_FUNCTION(batch_count);
   NAPI_EXPORT_FUNCTION(batch_iterate);
-  NAPI_EXPORT_FUNCTION(db_open_for_read_only);
-  NAPI_EXPORT_FUNCTION(db_compact_range);
 }

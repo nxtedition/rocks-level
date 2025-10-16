@@ -462,10 +462,23 @@ napi_status runAsync(State&& state,
                      napi_value callback,
                      T1&& execute,
                      T2&& then) {
+  {
+    napi_valuetype t;
+    NAPI_STATUS_RETURN(napi_typeof(env, callback, &t));
+    if (t != napi_function)
+      return napi_function_expected;
+  }
+
   struct Worker final {
     static void Execute(napi_env env, void* data) {
       auto worker = reinterpret_cast<Worker*>(data);
-      worker->status = worker->execute(worker->state);
+      try {
+        worker->status = worker->execute(worker->state);
+      } catch (const std::exception& e) {
+        worker->status = rocksdb::Status::Aborted(e.what());
+      } catch (...) {
+        worker->status = rocksdb::Status::Aborted("unknown exception");
+      }
     }
 
     static void Complete(napi_env env, napi_status status, void* data) {

@@ -471,6 +471,8 @@ napi_status runAsync(State&& state,
     static void Complete(napi_env env, napi_status status, void* data) {
       auto worker = std::unique_ptr<Worker>(reinterpret_cast<Worker*>(data));
 
+      NAPI_STATUS_THROWS_VOID(napi_open_handle_scope(env, &worker->scope));
+
       napi_value callback;
       NAPI_STATUS_THROWS_VOID(napi_get_reference_value(env, worker->callbackRef, &callback));
 
@@ -498,6 +500,9 @@ napi_status runAsync(State&& state,
         auto err = ToError(env, worker->status);
         NAPI_STATUS_THROWS_VOID(napi_call_function(env, global, callback, 1, &err, nullptr));
       }
+
+      NAPI_STATUS_THROWS_VOID(napi_close_handle_scope(env, worker->scope));
+      worker->scope = nullptr;
     }
 
     ~Worker() {
@@ -508,6 +513,10 @@ napi_status runAsync(State&& state,
       if (asyncWork) {
         napi_delete_async_work(env, asyncWork);
         asyncWork = nullptr;
+      }
+      if (scope) {
+        napi_close_handle_scope(env, scope);
+        scope = nullptr;
       }
     }
 
@@ -520,6 +529,7 @@ napi_status runAsync(State&& state,
 
     napi_ref callbackRef = nullptr;
     napi_async_work asyncWork = nullptr;
+    napi_handle_scope scope = nullptr;
     rocksdb::Status status = rocksdb::Status::OK();
   };
 

@@ -3,13 +3,10 @@
 const { AbstractChainedBatch } = require('abstract-level')
 const binding = require('./binding')
 const ModuleError = require('module-error')
-const { fromCallback } = require('catering')
 const assert = require('node:assert')
 
 const kBatchContext = Symbol('batchContext')
 const kDbContext = Symbol('dbContext')
-const kPromise = Symbol('promise')
-
 const EMPTY = {}
 
 class ChainedBatch extends AbstractChainedBatch {
@@ -78,16 +75,12 @@ class ChainedBatch extends AbstractChainedBatch {
   _write (options, callback) {
     assert(this[kBatchContext])
 
-    callback = fromCallback(callback, kPromise)
-
     try {
       this._writeSync(options)
       process.nextTick(callback, null)
     } catch (err) {
       process.nextTick(callback, err)
     }
-
-    return callback[kPromise]
   }
 
   _writeSync (options) {
@@ -97,9 +90,14 @@ class ChainedBatch extends AbstractChainedBatch {
   }
 
   _close (callback) {
-    this._closeSync()
+    assert(this[kBatchContext])
 
-    process.nextTick(callback)
+    try {
+      this._closeSync()
+      process.nextTick(callback, null)
+    } catch (err) {
+      process.nextTick(callback, err)
+    }
   }
 
   _closeSync () {

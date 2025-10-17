@@ -219,11 +219,11 @@ class RocksLevel extends AbstractLevel {
     callback = fromCallback(callback, kPromise)
 
     const batch = this._chainedBatch()
-    for (const { type, key, value, column } of operations) {
+    for (const { type, key, value, ...rest } of operations) {
       if (type === 'del') {
-        batch._del(key, { column })
+        batch.del(key, rest)
       } else if (type === 'put') {
-        batch._put(key, value, { column })
+        batch.put(key, value, rest)
       } else {
         assert(false)
       }

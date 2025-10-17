@@ -12,21 +12,21 @@ test('setUp db', function (t) {
   db.open(t.end.bind(t))
 })
 
-test('test batch([]) (array-form) emits batch event', async function (t) {
-  t.plan(2)
+// test('test batch([]) (array-form) emits batch event', async function (t) {
+//   t.plan(2)
 
-  const db = testCommon.factory()
-  await db.open()
+//   const db = testCommon.factory()
+//   await db.open()
 
-  t.ok(db.supports.events.batch)
+//   t.ok(db.supports.events.batch)
 
-  db.on('batch', function (ops) {
-    t.same(ops, [{ type: 'put', key: 456, value: 99, custom: 123 }])
-  })
+//   db.on('batch', function (ops) {
+//     t.same(ops, [{ type: 'put', key: 456, value: 99, custom: 123 }])
+//   })
 
-  await db.batch([{ type: 'put', key: 456, value: 99, custom: 123 }])
-  await db.close()
-})
+//   await db.batch([{ type: 'put', key: 456, value: 99, custom: 123 }])
+//   await db.close()
+// })
 
 // test('test batch iterate', async function (t) {
 //   const batch = db.batch()

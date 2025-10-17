@@ -455,6 +455,24 @@ napi_status Convert(napi_env env, rocksdb::PinnableSlice&& s, Encoding encoding,
   }
 }
 
+class HandleScope {
+ public:
+  HandleScope(napi_env env) : env_(env) {
+    status_ = napi_open_handle_scope(env_, &scope_);
+  }
+  ~HandleScope() {
+    if (status_ == napi_ok && scope_) {
+      napi_close_handle_scope(env_, scope_);
+    }
+  }
+  HandleScope(const HandleScope&) = delete;
+  HandleScope& operator=(const HandleScope&) = delete;
+ private:
+  napi_env env_ = nullptr;
+  napi_handle_scope scope_ = nullptr;
+  napi_status status_ = napi_generic_failure;
+};
+
 template <typename State, typename T1, typename T2>
 napi_status runAsync(State&& state,
                      const std::string& name,
@@ -465,8 +483,7 @@ napi_status runAsync(State&& state,
   {
     napi_valuetype t;
     NAPI_STATUS_RETURN(napi_typeof(env, callback, &t));
-    if (t != napi_function)
-      return napi_function_expected;
+    if (t != napi_function) { return napi_function_expected; }
   }
 
   struct Worker final {
@@ -484,10 +501,10 @@ napi_status runAsync(State&& state,
     static void Complete(napi_env env, napi_status status, void* data) {
       auto worker = std::unique_ptr<Worker>(reinterpret_cast<Worker*>(data));
 
-      NAPI_STATUS_THROWS_VOID(napi_open_handle_scope(env, &worker->scope));
+      HandleScope scope(env);
 
       napi_value callback;
-      NAPI_STATUS_THROWS_VOID(napi_get_reference_value(env, worker->callbackRef, &callback));
+      NAPI_STATUS_THROWS_VOID(napi_get_reference_value(env, worker->ref, &callback));
 
       napi_value global;
       NAPI_STATUS_THROWS_VOID(napi_get_global(env, &global));
@@ -513,24 +530,11 @@ napi_status runAsync(State&& state,
         auto err = ToError(env, worker->status);
         NAPI_STATUS_THROWS_VOID(napi_call_function(env, global, callback, 1, &err, nullptr));
       }
-
-      NAPI_STATUS_THROWS_VOID(napi_close_handle_scope(env, worker->scope));
-      worker->scope = nullptr;
     }
 
     ~Worker() {
-      if (callbackRef) {
-        napi_delete_reference(env, callbackRef);
-        callbackRef = nullptr;
-      }
-      if (asyncWork) {
-        napi_delete_async_work(env, asyncWork);
-        asyncWork = nullptr;
-      }
-      if (scope) {
-        napi_close_handle_scope(env, scope);
-        scope = nullptr;
-      }
+      if (ref) { napi_delete_reference(env, ref); }
+      if (asyncWork) { napi_delete_async_work(env, asyncWork); }
     }
 
     napi_env env = nullptr;
@@ -540,16 +544,15 @@ napi_status runAsync(State&& state,
 
     State state;
 
-    napi_ref callbackRef = nullptr;
+    napi_ref ref = nullptr;
     napi_async_work asyncWork = nullptr;
-    napi_handle_scope scope = nullptr;
     rocksdb::Status status = rocksdb::Status::OK();
   };
 
   auto worker =
       std::unique_ptr<Worker>(new Worker{env, std::forward<T1>(execute), std::forward<T2>(then), std::move(state)});
 
-  NAPI_STATUS_RETURN(napi_create_reference(env, callback, 1, &worker->callbackRef));
+  NAPI_STATUS_RETURN(napi_create_reference(env, callback, 1, &worker->ref));
   napi_value asyncResourceName;
   NAPI_STATUS_RETURN(napi_create_string_utf8(env, name.data(), name.size(), &asyncResourceName));
   NAPI_STATUS_RETURN(napi_create_async_work(env, callback, asyncResourceName, Worker::Execute, Worker::Complete,

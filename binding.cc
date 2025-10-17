@@ -1797,6 +1797,36 @@ NAPI_METHOD(batch_clear) {
 }
 
 NAPI_METHOD(batch_write) {
+  NAPI_ARGV(4);
+
+  Database* database;
+  NAPI_STATUS_THROWS(napi_get_value_external(env, argv[0], reinterpret_cast<void**>(&database)));
+
+  rocksdb::WriteBatch* batch;
+  NAPI_STATUS_THROWS(napi_get_value_external(env, argv[1], reinterpret_cast<void**>(&batch)));
+
+  bool sync = false;
+  NAPI_STATUS_THROWS(GetProperty(env, argv[2], "sync", sync));
+
+  bool lowPriority = false;
+  NAPI_STATUS_THROWS(GetProperty(env, argv[2], "lowPriority", lowPriority));
+
+  auto callback = argv[3];
+
+  runAsync<std::nullptr_t>(
+      "leveldown.batch_write", env, callback,
+      [=](auto& state) {
+        rocksdb::WriteOptions writeOptions;
+        writeOptions.sync = sync;
+        writeOptions.low_pri = lowPriority;
+        return database->db->Write(writeOptions, batch);
+      },
+      [](auto& state, auto env, auto& argv) { return napi_ok; });
+
+  return 0;
+}
+
+NAPI_METHOD(batch_write_sync) {
   NAPI_ARGV(3);
 
   Database* database;
@@ -2243,6 +2273,7 @@ NAPI_INIT() {
   NAPI_EXPORT_FUNCTION(batch_del);
   NAPI_EXPORT_FUNCTION(batch_clear);
   NAPI_EXPORT_FUNCTION(batch_write);
+  NAPI_EXPORT_FUNCTION(batch_write_sync);
   NAPI_EXPORT_FUNCTION(batch_merge);
   NAPI_EXPORT_FUNCTION(batch_count);
   NAPI_EXPORT_FUNCTION(batch_iterate);

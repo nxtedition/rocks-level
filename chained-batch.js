@@ -75,18 +75,13 @@ class ChainedBatch extends AbstractChainedBatch {
   _write (options, callback) {
     assert(this[kBatchContext])
 
-    try {
-      this._writeSync(options)
-      process.nextTick(callback, null)
-    } catch (err) {
-      process.nextTick(callback, err)
-    }
+    binding.batch_write(this[kDbContext], this[kBatchContext], options ?? EMPTY, callback)
   }
 
   _writeSync (options) {
     assert(this[kBatchContext])
 
-    binding.batch_write(this[kDbContext], this[kBatchContext], options ?? EMPTY)
+    binding.batch_write_sync(this[kDbContext], this[kBatchContext], options ?? EMPTY)
   }
 
   _close (callback) {

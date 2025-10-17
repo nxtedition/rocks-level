@@ -15,7 +15,8 @@ RUN apt update && apt install sudo -y
 RUN mkdir -p /opt/folly && cd /opt/folly && \
   git clone --depth 1 --branch v2025.08.11.00 https://github.com/facebook/folly . && \
   ./build/fbcode_builder/getdeps.py install-system-deps --recursive && \
-  ./build/fbcode_builder/getdeps.py build --no-tests --extra-cmake-defines='{"CMAKE_CXX_FLAGS": "-fPIC"}'
+  ./build/fbcode_builder/getdeps.py build --no-tests \
+  --extra-cmake-defines='{"CMAKE_BUILD_TYPE":"Release", "CMAKE_C_FLAGS":"-march=znver3 -mtune=znver3 -O3 -fPIC", "CMAKE_CXX_FLAGS":"-march=znver3 -mtune=znver3 -O3 -fPIC" }'
 
 # Copy folly (lib + headers + boost) into system folder
 RUN cd `cd /opt/folly && ./build/fbcode_builder/getdeps.py show-inst-dir folly` && \

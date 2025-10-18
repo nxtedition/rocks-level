@@ -81,6 +81,6 @@ RUN cd deps/rocksdb/rocksdb && make libzstd.a && \
 RUN yarn --ignore-scripts
 
 # This will build rocks-level bindings (binding.gyp)
-RUN npx prebuildify -t 24.5.0 -t 22.18.0 --napi --strip --arch x64
+RUN npx prebuildify -t 24.10.0 --napi --strip --arch x64
 
 RUN yarn test-prebuild

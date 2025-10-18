@@ -7,13 +7,13 @@ RUN apt update && apt install liburing-dev cmake pip -y
 # Let pip write to system site-packages (Debian 12 + PEP 668)
 ENV PIP_BREAK_SYSTEM_PACKAGES=1
 
-RUN git clone --depth 1 --branch liburing-2.11 https://git.kernel.dk/liburing.git /tmp/liburing && \
+RUN git clone --depth 1 --branch liburing-2.12 https://git.kernel.dk/liburing.git /tmp/liburing && \
     cd /tmp/liburing && ./configure && make -j"$(nproc)" && make install && ldconfig
 
 # Clone and build folly
 RUN apt update && apt install sudo -y
 RUN mkdir -p /opt/folly && cd /opt/folly && \
-  git clone --depth 1 --branch v2025.08.11.00 https://github.com/facebook/folly . && \
+  git clone --depth 1 --branch v2025.10.13.00 https://github.com/facebook/folly . && \
   ./build/fbcode_builder/getdeps.py install-system-deps --recursive && \
   ./build/fbcode_builder/getdeps.py build --no-tests \
   --extra-cmake-defines='{"CMAKE_BUILD_TYPE":"Release", "CMAKE_C_FLAGS":"-march=znver3 -mtune=znver3 -O3 -fPIC", "CMAKE_CXX_FLAGS":"-march=znver3 -mtune=znver3 -O3 -fPIC" }'

@@ -255,8 +255,16 @@ class RocksLevel extends AbstractLevel {
     return binding.db_get_property(this[kContext], property)
   }
 
-  async query (options) {
-    return this.querySync(options)
+  query(options, callback) {
+    callback = fromCallback(callback, kPromise)
+
+    try {
+      process.nextTick(callback, null, this.querySync(options))
+    } catch (err) {
+      process.nextTick(callback, err)
+    }
+
+    return callback[kPromise]
   }
 
   querySync (options) {

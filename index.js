@@ -315,6 +315,30 @@ class RocksLevel extends AbstractLevel {
 
     return callback[kPromise]
   }
+
+  flushWAL (options = {}, callback) {
+    callback = fromCallback(callback, kPromise)
+
+    if (this.status !== 'open') {
+      throw new ModuleError('Database is not open', {
+        code: 'LEVEL_DATABASE_NOT_OPEN'
+      })
+    }
+
+    binding.db_wal_flush(this[kContext], options?.sync ?? false, callback)
+
+    return callback[kPromise]
+  }
+}
+
+exports.RocksLevel = RocksLevel
+      })
+    }
+
+    binding.db_wal_flush(this[kContext], callback)
+
+    return callback[kPromise]
+  }
 }
 
 exports.RocksLevel = RocksLevel

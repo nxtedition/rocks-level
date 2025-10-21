@@ -1178,6 +1178,12 @@ NAPI_METHOD(db_open) {
 
     NAPI_STATUS_THROWS(GetProperty(env, options, "compactionReadaheadSize", dbOptions.compaction_readahead_size));
 
+    NAPI_STATUS_THROWS(GetProperty(env, options, "useAdaptiveMutex", dbOptions.use_adaptive_mutex));
+
+    NAPI_STATUS_THROWS(GetProperty(env, options, "writeBufferSize", dbOptions.db_write_buffer_size));
+
+    NAPI_STATUS_THROWS(GetProperty(env, options, "manualWALFlush", dbOptions.manual_wal_flush));
+
     // TODO (feat): dbOptions.listeners
 
     std::string infoLogLevel;
@@ -1598,6 +1604,28 @@ NAPI_METHOD(db_get_latest_sequence) {
   NAPI_STATUS_THROWS(napi_create_int64(env, seq, &result));
 
   return result;
+}
+
+NAPI_METHOD(db_flush_wal) {
+  NAPI_ARGV(3);
+
+  Database* database;
+  NAPI_STATUS_THROWS(napi_get_value_external(env, argv[0], reinterpret_cast<void**>(&database)));
+
+  bool sync;
+  NAPI_STATUS_THROWS(GetValue(env, argv[1], sync));
+
+  auto callback = argv[2];
+
+  struct State {};
+  runAsync<State>(
+      "leveldown.flush_wal", env, callback,
+      [=](auto& state) {
+        return database->db->FlushWAL(sync);
+      },
+      [](auto& state, auto env, auto& argv) { return napi_ok; });
+
+  return 0;
 }
 
 NAPI_METHOD(iterator_init) {

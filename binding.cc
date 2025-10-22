@@ -1183,6 +1183,7 @@ NAPI_METHOD(db_open) {
     NAPI_STATUS_THROWS(GetProperty(env, options, "writeBufferSize", dbOptions.db_write_buffer_size));
 
     NAPI_STATUS_THROWS(GetProperty(env, options, "manualWALFlush", dbOptions.manual_wal_flush));
+    NAPI_STATUS_THROWS(GetProperty(env, options, "walManualFlush", dbOptions.manual_wal_flush));
 
     // TODO (feat): dbOptions.listeners
 

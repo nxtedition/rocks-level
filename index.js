@@ -325,7 +325,7 @@ class RocksLevel extends AbstractLevel {
       })
     }
 
-    binding.db_wal_flush(this[kContext], options?.sync ?? false, callback)
+    binding.db_flush_wal(this[kContext], options?.sync ?? false, callback)
 
     return callback[kPromise]
   }

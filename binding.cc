@@ -2128,6 +2128,7 @@ NAPI_INIT() {
   NAPI_EXPORT_FUNCTION(db_query);
   NAPI_EXPORT_FUNCTION(db_compact_range_sync);
   NAPI_EXPORT_FUNCTION(db_compact_range);
+  NAPI_EXPORT_FUNCTION(db_flush_wal);
 
   NAPI_EXPORT_FUNCTION(iterator_init);
   NAPI_EXPORT_FUNCTION(iterator_seek);

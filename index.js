@@ -255,7 +255,7 @@ class RocksLevel extends AbstractLevel {
     return binding.db_get_property(this[kContext], property)
   }
 
-  query(options, callback) {
+  query (options, callback) {
     callback = fromCallback(callback, kPromise)
 
     try {
@@ -326,16 +326,6 @@ class RocksLevel extends AbstractLevel {
     }
 
     binding.db_wal_flush(this[kContext], options?.sync ?? false, callback)
-
-    return callback[kPromise]
-  }
-}
-
-exports.RocksLevel = RocksLevel
-      })
-    }
-
-    binding.db_wal_flush(this[kContext], callback)
 
     return callback[kPromise]
   }

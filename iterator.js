@@ -121,31 +121,20 @@ class Iterator extends AbstractIterator {
       this[kFirst] = false
 
       try {
-        if (kForceSync) {
-          const { rows, finished } = this._nextvSync(size, options)
+        this._nextvAsync(size, options, (err, val) => {
+          if (err) {
+            process.nextTick(callback, err)
+          } else {
+            const { rows, finished } = val
 
-          const entries = []
-          for (let n = 0; n < rows.length; n += 2) {
-            entries.push([rows[n + 0], rows[n + 1]])
-          }
-
-          process.nextTick(callback, null, entries, finished)
-        } else {
-          this._nextvAsync(size, options, (err, val) => {
-            if (err) {
-              process.nextTick(callback, err)
-            } else {
-              const { rows, finished } = val
-
-              const entries = []
-              for (let n = 0; n < rows.length; n += 2) {
-                entries.push([rows[n + 0], rows[n + 1]])
-              }
-
-              callback(null, entries, finished)
+            const entries = []
+            for (let n = 0; n < rows.length; n += 2) {
+              entries.push([rows[n + 0], rows[n + 1]])
             }
-          })
-        }
+
+            callback(null, entries, finished)
+          }
+        })
       } catch (err) {
         process.nextTick(callback, err)
       }

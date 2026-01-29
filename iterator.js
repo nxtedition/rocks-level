@@ -115,30 +115,20 @@ class Iterator extends AbstractIterator {
 
     callback = fromCallback(callback, kPromise)
 
-    if (this[kFinished]) {
-      process.nextTick(callback, null, [])
-    } else {
-      this[kFirst] = false
-
-      try {
-        this._nextvAsync(size, options, (err, val) => {
-          if (err) {
-            process.nextTick(callback, err)
-          } else {
-            const { rows, finished } = val
-
-            const entries = []
-            for (let n = 0; n < rows.length; n += 2) {
-              entries.push([rows[n + 0], rows[n + 1]])
-            }
-
-            callback(null, entries, finished)
-          }
-        })
-      } catch (err) {
+    this._nextvAsync(size, options, (err, val) => {
+      if (err) {
         process.nextTick(callback, err)
+      } else {
+        const { rows, finished } = val
+
+        const entries = []
+        for (let n = 0; n < rows.length; n += 2) {
+          entries.push([rows[n + 0], rows[n + 1]])
+        }
+
+        callback(null, entries, finished)
       }
-    }
+    })
 
     return callback[kPromise]
   }

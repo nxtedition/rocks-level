@@ -190,7 +190,7 @@ static napi_status GetString(napi_env env, napi_value from, rocksdb::PinnableSli
   } else {
     rocksdb::Slice slice;
     NAPI_STATUS_RETURN(GetString(env, from, slice));
-    to.PinSelf(std::move(slice));
+    to.PinSelf(slice);
   }
 
   return napi_ok;

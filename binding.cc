@@ -1659,8 +1659,6 @@ NAPI_METHOD(iterator_seek) {
     Iterator* iterator;
     NAPI_STATUS_THROWS(napi_get_value_external(env, argv[0], reinterpret_cast<void**>(&iterator)));
 
-    rocksdb::PinnableSlice target;
-
     struct State {
       rocksdb::PinnableSlice target;
     } state;

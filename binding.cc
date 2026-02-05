@@ -1653,7 +1653,7 @@ NAPI_METHOD(iterator_init_sync) {
 }
 
 NAPI_METHOD(iterator_seek) {
-  NAPI_ARGV(2);
+  NAPI_ARGV(3);
 
   try {
     Iterator* iterator;

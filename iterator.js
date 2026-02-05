@@ -23,7 +23,7 @@ class Iterator extends AbstractIterator {
   constructor (db, context, options) {
     super(db, options)
 
-    this[kContext] = binding.iterator_init(context, options)
+    this[kContext] = binding.iterator_init_sync(context, options)
 
     this[kFirst] = true
     this[kCache] = kEmpty
@@ -50,40 +50,10 @@ class Iterator extends AbstractIterator {
     return (this[kCache].length - this[kPosition]) / 2
   }
 
-  // nxt API
 
-  _seekSync (target) {
+  _next(callback) {
     assert(this[kContext])
-
-    if (target.length === 0) {
-      throw new Error('cannot seek() to an empty target')
-    }
-
-    this[kFirst] = true
-    this[kCache] = kEmpty
-    this[kFinished] = false
-    this[kPosition] = 0
-
-    binding.iterator_seek(this[kContext], target)
-  }
-
-  _seekAsync (target, callback) {
-    assert(this[kContext])
-
-    callback = fromCallback(callback, kPromise)
-
-    try {
-      this._seekSync(target)
-      process.nextTick(callback)
-    } catch (err) {
-      process.nextTick(callback, err)
-    }
-
-    return callback[kPromise]
-  }
-
-  _next (callback) {
-    assert(this[kContext])
+    assert(!this[kBusy])
 
     if (this[kPosition] < this[kCache].length) {
       const key = this[kCache][this[kPosition]++]
@@ -110,14 +80,15 @@ class Iterator extends AbstractIterator {
     return this
   }
 
-  _nextv (size, options, callback) {
+  _nextv(size, options, callback) {
     assert(this[kContext])
+    assert(!this[kBusy])
 
     callback = fromCallback(callback, kPromise)
 
     this._nextvAsync(size, options, (err, val) => {
       if (err) {
-        process.nextTick(callback, err)
+        callback(err)
       } else {
         const { rows, finished } = val
 
@@ -133,14 +104,63 @@ class Iterator extends AbstractIterator {
     return callback[kPromise]
   }
 
+  // nxt API
+
+  _seekSync (target) {
+    assert(this[kContext])
+    assert(!this[kBusy])
+
+    if (target.length === 0) {
+      throw new Error('cannot seek() to an empty target')
+    }
+
+    this[kFirst] = true
+    this[kCache] = kEmpty
+    this[kFinished] = false
+    this[kPosition] = 0
+
+    binding.iterator_seek_sync(this[kContext], target)
+  }
+
+  _seekAsync (target, callback) {
+    assert(this[kContext])
+    assert(!this[kBusy])
+
+    callback = fromCallback(callback, kPromise)
+
+    this[kFirst] = true
+    this[kCache] = kEmpty
+    this[kFinished] = false
+    this[kPosition] = 0
+
+    try {
+      binding.iterator_seek(this[kContext], target, (err) => {
+        this[kBusy] = false
+        this[kDB][kUnref]()
+
+        if (err) {
+          callback(err)
+        } else {
+          callback(null)
+        }
+      })
+      this[kDB][kRef]()
+      this[kBusy] = true
+    } catch (err) {
+      process.nextTick(callback, err)
+    }
+
+    return callback[kPromise]
+  }
+
   _nextvSync (size, options) {
     assert(this[kContext])
+    assert(!this[kBusy])
 
     if (this[kFinished]) {
       return { rows: [], finished: true }
     }
 
-    this[kFirst] = false
     const result = binding.iterator_nextv_sync(this[kContext], size, options)
     this[kFinished] = result.finished
 
@@ -149,6 +169,7 @@ class Iterator extends AbstractIterator {
 
   _nextvAsync (size, options, callback) {
     assert(this[kContext])
+    assert(!this[kBusy])
 
     callback = fromCallback(callback, kPromise)
 
@@ -156,14 +177,10 @@ class Iterator extends AbstractIterator {
       if (this[kFinished]) {
         process.nextTick(callback, null, { rows: [], finished: true })
       } else {
-        assert(!this[kBusy])
-
-        this[kFirst] = false
-        this[kBusy] = true
-        this[kDB][kRef]()
         binding.iterator_nextv(this[kContext], size, options, (err, result) => {
           this[kBusy] = false
           this[kDB][kUnref]()
+
           if (err) {
             callback(err)
           } else {
@@ -171,6 +188,8 @@ class Iterator extends AbstractIterator {
             callback(null, result)
           }
         })
+        this[kBusy] = true
+        this[kDB][kRef]()
       }
     } catch (err) {
       process.nextTick(callback, err)
@@ -183,7 +202,7 @@ class Iterator extends AbstractIterator {
     this[kCache] = kEmpty
 
     if (this[kContext]) {
-      binding.iterator_close(this[kContext])
+      binding.iterator_close_sync(this[kContext])
       this[kContext] = null
     }
   }

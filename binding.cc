@@ -1629,7 +1629,7 @@ NAPI_METHOD(db_flush_wal) {
   return 0;
 }
 
-NAPI_METHOD(iterator_init) {
+NAPI_METHOD(iterator_init_sync) {
   NAPI_ARGV(2);
 
   napi_value result;
@@ -1656,6 +1656,30 @@ NAPI_METHOD(iterator_seek) {
     rocksdb::PinnableSlice target;
     NAPI_STATUS_THROWS(GetValue(env, argv[1], target));
 
+    auto callback = argv[2];
+
+    struct State {};
+    runAsync<State>(
+        "leveldown.iterator_seek", env, callback, [=](auto& state) { return iterator->Seek(target); },
+        [](auto& state, auto env, auto& argv) { return napi_ok; });
+  } catch (const std::exception& e) {
+    napi_throw_error(env, nullptr, e.what());
+    return nullptr;
+  }
+
+  return 0;
+}
+
+NAPI_METHOD(iterator_seek_sync) {
+  NAPI_ARGV(2);
+
+  try {
+    Iterator* iterator;
+    NAPI_STATUS_THROWS(napi_get_value_external(env, argv[0], reinterpret_cast<void**>(&iterator)));
+
+    rocksdb::PinnableSlice target;
+    NAPI_STATUS_THROWS(GetValue(env, argv[1], target));
+
     iterator->Seek(target);
   } catch (const std::exception& e) {
     napi_throw_error(env, nullptr, e.what());
@@ -1665,7 +1689,7 @@ NAPI_METHOD(iterator_seek) {
   return 0;
 }
 
-NAPI_METHOD(iterator_close) {
+NAPI_METHOD(iterator_close_sync) {
   NAPI_ARGV(1);
 
   try {
@@ -2131,9 +2155,10 @@ NAPI_INIT() {
   NAPI_EXPORT_FUNCTION(db_compact_range);
   NAPI_EXPORT_FUNCTION(db_flush_wal);
 
-  NAPI_EXPORT_FUNCTION(iterator_init);
+  NAPI_EXPORT_FUNCTION(iterator_init_sync);
   NAPI_EXPORT_FUNCTION(iterator_seek);
-  NAPI_EXPORT_FUNCTION(iterator_close);
+  NAPI_EXPORT_FUNCTION(iterator_seek_sync);
+  NAPI_EXPORT_FUNCTION(iterator_close_sync);
   NAPI_EXPORT_FUNCTION(iterator_nextv);
   NAPI_EXPORT_FUNCTION(iterator_nextv_sync);
 

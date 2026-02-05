@@ -9,7 +9,6 @@
         "include_dirs": ["rocksdb/include/"]
       },
       "defines": [
-        "NDEBUG=1",
         "ZSTD=1",
         "ZSTD_STATIC_LINKING_ONLY=1",
         "ROCKSDB_BACKTRACE=1",
@@ -369,10 +368,10 @@
         "rocksdb/table/table_properties.cc",
         "rocksdb/table/two_level_iterator.cc",
         "rocksdb/table/unique_id.cc",
-        # "rocksdb/test_util/sync_point.cc",
-        # "rocksdb/test_util/sync_point_impl.cc",
-        # "rocksdb/test_util/testutil.cc",
-        # "rocksdb/test_util/transaction_test_util.cc",
+        "rocksdb/test_util/sync_point.cc",
+        "rocksdb/test_util/sync_point_impl.cc",
+        "rocksdb/test_util/testutil.cc",
+        "rocksdb/test_util/transaction_test_util.cc",
         # "rocksdb/tools/block_cache_analyzer/block_cache_trace_analyzer.cc",
         # "rocksdb/tools/dump/db_dump_tool.cc",
         # "rocksdb/tools/io_tracer_parser_tool.cc",

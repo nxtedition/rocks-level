@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm pack:*)",
+      "Bash(node:*)",
+      "Bash(npm view:*)",
+      "Bash(npm info:*)",
+      "Bash(nm:*)",
+      "Bash(grep:*)",
+      "Bash(while read f)",
+      "Bash(do basename \"$f\")",
+      "Bash(done)"
+    ]
+  }
+}

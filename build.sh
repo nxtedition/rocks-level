@@ -1,6 +1,5 @@
 #!/bin/bash
 set -e
-export DOCKER_HOST=${DOCKER_HOST:-ssh://root@test-srv3.hq.bmux}
 
 echo "Building image..."
 docker build --iidfile prebuilds.iid .

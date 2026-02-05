@@ -432,8 +432,7 @@ class Iterator final : public BaseIterator {
         values_(values),
         highWaterMarkBytes_(highWaterMarkBytes),
         keyEncoding_(keyEncoding),
-        valueEncoding_(valueEncoding) {
-  }
+        valueEncoding_(valueEncoding) {}
 
   void Seek(const rocksdb::Slice& target) override {
     first_ = true;
@@ -483,7 +482,8 @@ class Iterator final : public BaseIterator {
     rocksdb::ReadOptions readOptions;
 
     readOptions.background_purge_on_iterator_cleanup = true;
-    NAPI_STATUS_THROWS(GetProperty(env, options, "backgroundPurgeOnIteratorCleanup", readOptions.background_purge_on_iterator_cleanup));
+    NAPI_STATUS_THROWS(GetProperty(env, options, "backgroundPurgeOnIteratorCleanup",
+                                   readOptions.background_purge_on_iterator_cleanup));
 
     readOptions.tailing = false;
     NAPI_STATUS_THROWS(GetProperty(env, options, "tailing", readOptions.tailing));
@@ -529,14 +529,13 @@ class Iterator final : public BaseIterator {
       bool finished = false;
     };
 
-    runAsync<State>("iterator.nextv", env, callback,
+    runAsync<State>(
+        "iterator.nextv", env, callback,
         [=](auto& state) {
           state.keys.reserve(count);
           state.values.reserve(count);
 
-          const auto deadline = timeout
-            ? database_->db->GetEnv()->NowMicros() + timeout * 1000
-            : 0;
+          const auto deadline = timeout ? database_->db->GetEnv()->NowMicros() + timeout * 1000 : 0;
 
           size_t bytesRead = 0;
           for (int n = 0; n < count; n++) {
@@ -633,9 +632,7 @@ class Iterator final : public BaseIterator {
     napi_value rows;
     NAPI_STATUS_THROWS(napi_create_array(env, &rows));
 
-    const auto deadline = timeout
-      ? database_->db->GetEnv()->NowMicros() + timeout * 1000
-      : 0;
+    const auto deadline = timeout ? database_->db->GetEnv()->NowMicros() + timeout * 1000 : 0;
 
     size_t idx = 0;
     size_t bytesRead = 0;
@@ -908,15 +905,19 @@ napi_status InitOptions(napi_env env, T& columnOptions, const U& options) {
   // Compat
   NAPI_STATUS_RETURN(GetProperty(env, options, "enableBlobFiles", columnOptions.enable_blob_files));
   NAPI_STATUS_RETURN(GetProperty(env, options, "minBlobSize", columnOptions.min_blob_size));
-  NAPI_STATUS_RETURN(GetProperty(env, options, "enableBlobGarbageCollection", columnOptions.enable_blob_garbage_collection));
+  NAPI_STATUS_RETURN(
+      GetProperty(env, options, "enableBlobGarbageCollection", columnOptions.enable_blob_garbage_collection));
 
   NAPI_STATUS_RETURN(GetProperty(env, options, "blobFiles", columnOptions.enable_blob_files));
   NAPI_STATUS_RETURN(GetProperty(env, options, "blobMinSize", columnOptions.min_blob_size));
   NAPI_STATUS_RETURN(GetProperty(env, options, "blobGarbageCollection", columnOptions.enable_blob_garbage_collection));
   NAPI_STATUS_RETURN(GetProperty(env, options, "blobFileSize", columnOptions.blob_file_size));
-  NAPI_STATUS_RETURN(GetProperty(env, options, "blobGarbageCollectionAgeCutoff", columnOptions.blob_garbage_collection_age_cutoff));
-  NAPI_STATUS_RETURN(GetProperty(env, options, "blobGarbageCollectionForceThreshold", columnOptions.blob_garbage_collection_force_threshold));
-  NAPI_STATUS_RETURN(GetProperty(env, options, "blobCompactionReadaheadSize", columnOptions.blob_compaction_readahead_size));
+  NAPI_STATUS_RETURN(
+      GetProperty(env, options, "blobGarbageCollectionAgeCutoff", columnOptions.blob_garbage_collection_age_cutoff));
+  NAPI_STATUS_RETURN(GetProperty(env, options, "blobGarbageCollectionForceThreshold",
+                                 columnOptions.blob_garbage_collection_force_threshold));
+  NAPI_STATUS_RETURN(
+      GetProperty(env, options, "blobCompactionReadaheadSize", columnOptions.blob_compaction_readahead_size));
   NAPI_STATUS_RETURN(GetProperty(env, options, "blobFileStartingLevel", columnOptions.blob_file_starting_level));
   NAPI_STATUS_RETURN(GetProperty(env, options, "blobCompression", columnOptions.blob_compression_type));
 
@@ -987,7 +988,7 @@ napi_status InitOptions(napi_env env, T& columnOptions, const U& options) {
       columnOptions.blob_cache = cache;
     } else if (cacheSize == 0) {
       columnOptions.blob_cache = nullptr;
-    } else  if (compressedRatio > 0.0) {
+    } else if (compressedRatio > 0.0) {
       rocksdb::TieredCacheOptions options;
       options.total_capacity = cacheSize;
       options.compressed_secondary_ratio = compressedRatio;
@@ -1060,22 +1061,27 @@ napi_status InitOptions(napi_env env, T& columnOptions, const U& options) {
   } else if (indexShortening == "shortenSeparators") {
     tableOptions.index_shortening = rocksdb::BlockBasedTableOptions::IndexShorteningMode::kShortenSeparators;
   } else if (indexShortening == "shortenSeparatorsAndSuccessor") {
-    tableOptions.index_shortening = rocksdb::BlockBasedTableOptions::IndexShorteningMode::kShortenSeparatorsAndSuccessor;
+    tableOptions.index_shortening =
+        rocksdb::BlockBasedTableOptions::IndexShorteningMode::kShortenSeparatorsAndSuccessor;
   } else {
     return napi_invalid_arg;
   }
 
-  NAPI_STATUS_RETURN(GetProperty(env, options, "dataBlockHashTableUtilRatio", tableOptions.data_block_hash_table_util_ratio));
+  NAPI_STATUS_RETURN(
+      GetProperty(env, options, "dataBlockHashTableUtilRatio", tableOptions.data_block_hash_table_util_ratio));
   NAPI_STATUS_RETURN(GetProperty(env, options, "blockSize", tableOptions.block_size));
   NAPI_STATUS_RETURN(GetProperty(env, options, "blockRestartInterval", tableOptions.block_restart_interval));
   NAPI_STATUS_RETURN(GetProperty(env, options, "blockAlign", tableOptions.block_align));
-  NAPI_STATUS_RETURN(GetProperty(env, options, "cacheIndexAndFilterBlocks", tableOptions.cache_index_and_filter_blocks));
-  NAPI_STATUS_RETURN(GetProperty(env, options, "cacheIndexAndFilterBlocksWithHighPriority", tableOptions.cache_index_and_filter_blocks_with_high_priority));
+  NAPI_STATUS_RETURN(
+      GetProperty(env, options, "cacheIndexAndFilterBlocks", tableOptions.cache_index_and_filter_blocks));
+  NAPI_STATUS_RETURN(GetProperty(env, options, "cacheIndexAndFilterBlocksWithHighPriority",
+                                 tableOptions.cache_index_and_filter_blocks_with_high_priority));
   NAPI_STATUS_RETURN(GetProperty(env, options, "decouplePartitionedFilters", tableOptions.block_restart_interval));
   NAPI_STATUS_RETURN(GetProperty(env, options, "optimizeFiltersForMemory", tableOptions.optimize_filters_for_memory));
   NAPI_STATUS_RETURN(GetProperty(env, options, "maxAutoReadaheadSize", tableOptions.max_auto_readahead_size));
   NAPI_STATUS_RETURN(GetProperty(env, options, "initialAutoReadaheadSize", tableOptions.initial_auto_readahead_size));
-  NAPI_STATUS_RETURN(GetProperty(env, options, "numFileReadsForAutoReadahead", tableOptions.num_file_reads_for_auto_readahead));
+  NAPI_STATUS_RETURN(
+      GetProperty(env, options, "numFileReadsForAutoReadahead", tableOptions.num_file_reads_for_auto_readahead));
 
   columnOptions.table_factory.reset(rocksdb::NewBlockBasedTableFactory(tableOptions));
 
@@ -1139,10 +1145,12 @@ NAPI_METHOD(db_open) {
         walCompression ? rocksdb::CompressionType::kZSTD : rocksdb::CompressionType::kNoCompression;
 
     dbOptions.avoid_unnecessary_blocking_io = true;
-    NAPI_STATUS_THROWS(GetProperty(env, options, "avoidUnnecessaryBlockingIO", dbOptions.avoid_unnecessary_blocking_io));
+    NAPI_STATUS_THROWS(
+        GetProperty(env, options, "avoidUnnecessaryBlockingIO", dbOptions.avoid_unnecessary_blocking_io));
 
     dbOptions.create_missing_column_families = true;
-    NAPI_STATUS_THROWS(GetProperty(env, options, "createMissingColumnFamilies", dbOptions.create_missing_column_families));
+    NAPI_STATUS_THROWS(
+        GetProperty(env, options, "createMissingColumnFamilies", dbOptions.create_missing_column_families));
 
     NAPI_STATUS_THROWS(GetProperty(env, options, "writeDbIdToManifest", dbOptions.write_dbid_to_manifest));
 
@@ -1174,7 +1182,8 @@ NAPI_METHOD(db_open) {
 
     NAPI_STATUS_THROWS(GetProperty(env, options, "useDirectIOReads", dbOptions.use_direct_reads));
 
-    NAPI_STATUS_THROWS(GetProperty(env, options, "useDirectIOForFlushAndCompaction", dbOptions.use_direct_io_for_flush_and_compaction));
+    NAPI_STATUS_THROWS(GetProperty(env, options, "useDirectIOForFlushAndCompaction",
+                                   dbOptions.use_direct_io_for_flush_and_compaction));
 
     NAPI_STATUS_THROWS(GetProperty(env, options, "compactionReadaheadSize", dbOptions.compaction_readahead_size));
 
@@ -1344,9 +1353,8 @@ NAPI_METHOD(db_get_many_sync) {
   }
 
   rocksdb::ReadOptions readOptions;
-  readOptions.deadline = timeout
-    ? std::chrono::microseconds(database->db->GetEnv()->NowMicros() + timeout * 1000)
-    : std::chrono::microseconds::zero();
+  readOptions.deadline = timeout ? std::chrono::microseconds(database->db->GetEnv()->NowMicros() + timeout * 1000)
+                                 : std::chrono::microseconds::zero();
 
   readOptions.fill_cache = false;
   NAPI_STATUS_THROWS(GetProperty(env, argv[2], "fillCache", readOptions.fill_cache));
@@ -1432,8 +1440,8 @@ NAPI_METHOD(db_get_many) {
   state.readOptions.value_size_soft_limit = std::numeric_limits<int32_t>::max();
   NAPI_STATUS_THROWS(GetProperty(env, argv[2], "highWaterMarkBytes", state.readOptions.value_size_soft_limit));
 
-  runAsync(std::move(state),
-      "leveldown.get_many", env, callback,
+  runAsync(
+      std::move(state), "leveldown.get_many", env, callback,
       [=](auto& state) {
         std::vector<rocksdb::Slice> keys;
         keys.reserve(count);
@@ -1444,7 +1452,8 @@ NAPI_METHOD(db_get_many) {
         state.statuses.resize(count);
         state.values.resize(count);
 
-        database->db->MultiGet(state.readOptions, column, count, keys.data(), state.values.data(), state.statuses.data());
+        database->db->MultiGet(state.readOptions, column, count, keys.data(), state.values.data(),
+                               state.statuses.data());
 
         return rocksdb::Status::OK();
       },
@@ -1620,10 +1629,7 @@ NAPI_METHOD(db_flush_wal) {
 
   struct State {};
   runAsync<State>(
-      "leveldown.flush_wal", env, callback,
-      [=](auto& state) {
-        return database->db->FlushWAL(sync);
-      },
+      "leveldown.flush_wal", env, callback, [=](auto& state) { return database->db->FlushWAL(sync); },
       [](auto& state, auto env, auto& argv) { return napi_ok; });
 
   return 0;
@@ -1654,13 +1660,21 @@ NAPI_METHOD(iterator_seek) {
     NAPI_STATUS_THROWS(napi_get_value_external(env, argv[0], reinterpret_cast<void**>(&iterator)));
 
     rocksdb::PinnableSlice target;
-    NAPI_STATUS_THROWS(GetValue(env, argv[1], target));
+
+    struct State {
+      rocksdb::PinnableSlice target;
+    } state;
+
+    NAPI_STATUS_THROWS(GetValue(env, argv[1], state.target));
 
     auto callback = argv[2];
 
-    struct State {};
     runAsync<State>(
-        "leveldown.iterator_seek", env, callback, [=](auto& state) { return iterator->Seek(target); },
+        std::move(state), "leveldown.iterator_seek", env, callback,
+        [=](auto& state) {
+          iterator->Seek(state.target);
+          return iterator->Status();
+         },
         [](auto& state, auto env, auto& argv) { return napi_ok; });
   } catch (const std::exception& e) {
     napi_throw_error(env, nullptr, e.what());
@@ -1681,6 +1695,8 @@ NAPI_METHOD(iterator_seek_sync) {
     NAPI_STATUS_THROWS(GetValue(env, argv[1], target));
 
     iterator->Seek(target);
+
+    ROCKS_STATUS_THROWS_NAPI(iterator->Status());
   } catch (const std::exception& e) {
     napi_throw_error(env, nullptr, e.what());
     return nullptr;
@@ -2020,7 +2036,7 @@ NAPI_METHOD(updates_init) {
 
     napi_value result;
     auto updates =
-      std::unique_ptr<Updates>(new Updates(database, since, keys, values, data, column, keyEncoding, valueEncoding));
+        std::unique_ptr<Updates>(new Updates(database, since, keys, values, data, column, keyEncoding, valueEncoding));
 
     NAPI_STATUS_THROWS(napi_create_external(env, updates.get(), Finalize<Updates>, updates.get(), &result));
     updates.release();

@@ -17,7 +17,6 @@ const kPosition = Symbol('position')
 const kBusy = Symbol('busy')
 
 const kEmpty = []
-const kForceSync = false
 
 class Iterator extends AbstractIterator {
   constructor (db, context, options) {
@@ -50,8 +49,7 @@ class Iterator extends AbstractIterator {
     return (this[kCache].length - this[kPosition]) / 2
   }
 
-
-  _next(callback) {
+  _next (callback) {
     assert(this[kContext])
     assert(!this[kBusy])
 
@@ -80,7 +78,7 @@ class Iterator extends AbstractIterator {
     return this
   }
 
-  _nextv(size, options, callback) {
+  _nextv (size, options, callback) {
     assert(this[kContext])
     assert(!this[kBusy])
 

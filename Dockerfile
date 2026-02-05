@@ -13,7 +13,7 @@ RUN git clone --depth 1 --branch liburing-2.12 https://git.kernel.dk/liburing.gi
 # Clone and build folly
 RUN apt update && apt install sudo -y
 RUN mkdir -p /opt/folly && cd /opt/folly && \
-  git clone --depth 1 --branch v2025.10.13.00 https://github.com/facebook/folly . && \
+  git clone --depth 1 --branch v2026.02.02.00 https://github.com/facebook/folly . && \
   ./build/fbcode_builder/getdeps.py install-system-deps --recursive && \
   ./build/fbcode_builder/getdeps.py build --no-tests \
   --extra-cmake-defines='{"CMAKE_BUILD_TYPE":"Release", "CMAKE_C_FLAGS":"-march=znver3 -mtune=znver3 -O3 -fPIC", "CMAKE_CXX_FLAGS":"-march=znver3 -mtune=znver3 -O3 -fPIC" }'
@@ -81,6 +81,6 @@ RUN cd deps/rocksdb/rocksdb && make libzstd.a && \
 RUN yarn --ignore-scripts
 
 # This will build rocks-level bindings (binding.gyp)
-RUN npx prebuildify -t 24.10.0 --napi --strip --arch x64
+RUN npx prebuildify -t 25.6.0 --napi --strip --arch x64
 
 RUN yarn test-prebuild

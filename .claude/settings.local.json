@@ -10,7 +10,11 @@
       "Bash(while read f)",
       "Bash(do basename \"$f\")",
       "Bash(done)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(git submodule update:*)",
+      "Bash(git submodule:*)",
+      "Bash(yarn build:*)",
+      "Bash(yarn rebuild:*)"
     ]
   }
 }

@@ -18,6 +18,8 @@
 #include <rocksdb/table.h>
 #include <rocksdb/write_batch.h>
 
+#include <re2/re2.h>
+
 #include <iostream>
 #include <memory>
 #include <optional>
@@ -411,6 +413,9 @@ class Iterator final : public BaseIterator {
   bool first_ = true;
   const Encoding keyEncoding_;
   const Encoding valueEncoding_;
+  std::optional<re2::RE2> keyFilter_;
+  std::optional<re2::RE2> valueFilter_;
+  const bool unsafe_;
 
  public:
   Iterator(Database* database,
@@ -424,15 +429,32 @@ class Iterator final : public BaseIterator {
            const std::optional<std::string>& gt,
            const std::optional<std::string>& gte,
            const size_t highWaterMarkBytes,
+           std::optional<std::string> keyFilter = std::nullopt,
+           std::optional<std::string> valueFilter = std::nullopt,
            Encoding keyEncoding = Encoding::Invalid,
            Encoding valueEncoding = Encoding::Invalid,
+           const bool unsafe = false,
            rocksdb::ReadOptions readOptions = {})
       : BaseIterator(database, column, reverse, lt, lte, gt, gte, limit, readOptions),
         keys_(keys),
         values_(values),
         highWaterMarkBytes_(highWaterMarkBytes),
         keyEncoding_(keyEncoding),
-        valueEncoding_(valueEncoding) {}
+        valueEncoding_(valueEncoding),
+        unsafe_(unsafe) {
+    if (keyFilter && keyFilter->size() > 0) {
+      keyFilter_.emplace(*keyFilter);
+      if (!keyFilter_->ok()) {
+        throw std::invalid_argument("Invalid key filter regex");
+      }
+    }
+    if (valueFilter && valueFilter->size() > 0) {
+      valueFilter_.emplace(*valueFilter);
+      if (!valueFilter_->ok()) {
+        throw std::invalid_argument("Invalid value filter regex");
+      }
+    }
+  }
 
   void Seek(const rocksdb::Slice& target) override {
     first_ = true;
@@ -442,6 +464,9 @@ class Iterator final : public BaseIterator {
   static std::unique_ptr<Iterator> create(napi_env env, napi_value db, napi_value options) {
     Database* database;
     NAPI_STATUS_THROWS(napi_get_value_external(env, db, reinterpret_cast<void**>(&database)));
+
+    bool unsafe = false;
+    NAPI_STATUS_THROWS(GetProperty(env, options, "unsafe", unsafe));
 
     bool reverse = false;
     NAPI_STATUS_THROWS(GetProperty(env, options, "reverse", reverse));
@@ -469,6 +494,12 @@ class Iterator final : public BaseIterator {
 
     std::optional<std::string> gte;
     NAPI_STATUS_THROWS(GetProperty(env, options, "gte", gte));
+
+    std::optional<std::string> keyFilter;
+    NAPI_STATUS_THROWS(GetProperty(env, options, "keyFilter", keyFilter));
+
+    std::optional<std::string> valueFilter;
+    NAPI_STATUS_THROWS(GetProperty(env, options, "valueFilter", valueFilter));
 
     rocksdb::ColumnFamilyHandle* column = database->db->DefaultColumnFamily();
     NAPI_STATUS_THROWS(GetProperty(env, options, "column", column));
@@ -518,7 +549,8 @@ class Iterator final : public BaseIterator {
     //   : std::chrono::microseconds::zero();
 
     return std::make_unique<Iterator>(database, column, reverse, keys, values, limit, lt, lte, gt, gte,
-                                      highWaterMarkBytes, keyEncoding, valueEncoding, readOptions);
+                                      highWaterMarkBytes, keyFilter, valueFilter, keyEncoding, valueEncoding,
+                                      unsafe, readOptions);
   }
 
   napi_value nextv(napi_env env, uint32_t count, uint32_t timeout, napi_value callback) {
@@ -538,7 +570,15 @@ class Iterator final : public BaseIterator {
           const auto deadline = timeout ? database_->db->GetEnv()->NowMicros() + timeout * 1000 : 0;
 
           size_t bytesRead = 0;
-          for (int n = 0; n < count; n++) {
+          while (state.count < count) {
+            if (bytesRead > highWaterMarkBytes_) {
+              break;
+            }
+
+            if (deadline > 0 && database_->db->GetEnv()->NowMicros() > deadline) {
+              break;
+            }
+
             if (!first_) {
               Next();
             } else {
@@ -550,6 +590,16 @@ class Iterator final : public BaseIterator {
             if (!Valid() || !Increment()) {
               state.finished = true;
               break;
+            }
+
+            bytesRead += CurrentKey().size() + CurrentValue().size();
+
+            if (keyFilter_ && !re2::RE2::PartialMatch(CurrentKey().ToStringView(), *keyFilter_)) {
+              continue;
+            }
+
+            if (valueFilter_ && !re2::RE2::PartialMatch(CurrentValue().ToStringView(), *valueFilter_)) {
+              continue;
             }
 
             if (keys_ && values_) {
@@ -572,15 +622,6 @@ class Iterator final : public BaseIterator {
               assert(false);
             }
             state.count += 1;
-
-            bytesRead += CurrentKey().size() + CurrentValue().size();
-            if (bytesRead > highWaterMarkBytes_) {
-              break;
-            }
-
-            if (deadline > 0 && database_->db->GetEnv()->NowMicros() > deadline) {
-              break;
-            }
           }
 
           return rocksdb::Status::OK();
@@ -599,14 +640,14 @@ class Iterator final : public BaseIterator {
             napi_value val;
 
             if (keys_ && values_) {
-              NAPI_STATUS_RETURN(Convert(env, std::move(state.keys[n]), keyEncoding_, key));
-              NAPI_STATUS_RETURN(Convert(env, std::move(state.values[n]), valueEncoding_, val));
+              NAPI_STATUS_RETURN(Convert(env, std::move(state.keys[n]), keyEncoding_, key, unsafe_));
+              NAPI_STATUS_RETURN(Convert(env, std::move(state.values[n]), valueEncoding_, val, unsafe_));
             } else if (keys_) {
-              NAPI_STATUS_RETURN(Convert(env, std::move(state.keys[n]), keyEncoding_, key));
+              NAPI_STATUS_RETURN(Convert(env, std::move(state.keys[n]), keyEncoding_, key, unsafe_));
               NAPI_STATUS_RETURN(napi_get_undefined(env, &val));
             } else if (values_) {
               NAPI_STATUS_RETURN(napi_get_undefined(env, &key));
-              NAPI_STATUS_RETURN(Convert(env, std::move(state.values[n]), valueEncoding_, val));
+              NAPI_STATUS_RETURN(Convert(env, std::move(state.values[n]), valueEncoding_, val, unsafe_));
             } else {
               assert(false);
             }
@@ -636,7 +677,15 @@ class Iterator final : public BaseIterator {
 
     size_t idx = 0;
     size_t bytesRead = 0;
-    for (int n = 0; n < count; n++) {
+    while (idx < count * 2) {
+      if (bytesRead > highWaterMarkBytes_) {
+        break;
+      }
+
+      if (deadline > 0 && database_->db->GetEnv()->NowMicros() > deadline) {
+        break;
+      }
+
       if (!first_) {
         Next();
       } else {
@@ -650,37 +699,38 @@ class Iterator final : public BaseIterator {
         break;
       }
 
+      bytesRead += CurrentKey().size() + CurrentValue().size();
+
+      if (keyFilter_ && !re2::RE2::PartialMatch(CurrentKey().ToStringView(), *keyFilter_)) {
+        continue;
+      }
+
+      if (valueFilter_ && !re2::RE2::PartialMatch(CurrentValue().ToStringView(), *valueFilter_)) {
+        continue;
+      }
+
       napi_value key;
       napi_value val;
 
       if (keys_ && values_) {
         const auto k = CurrentKey();
         const auto v = CurrentValue();
-        NAPI_STATUS_THROWS(Convert(env, &k, keyEncoding_, key));
-        NAPI_STATUS_THROWS(Convert(env, &v, valueEncoding_, val));
+        NAPI_STATUS_THROWS(Convert(env, &k, keyEncoding_, key, unsafe_));
+        NAPI_STATUS_THROWS(Convert(env, &v, valueEncoding_, val, unsafe_));
       } else if (keys_) {
         const auto k = CurrentKey();
-        NAPI_STATUS_THROWS(Convert(env, &k, keyEncoding_, key));
+        NAPI_STATUS_THROWS(Convert(env, &k, keyEncoding_, key, unsafe_));
         NAPI_STATUS_THROWS(napi_get_undefined(env, &val));
       } else if (values_) {
         const auto v = CurrentValue();
         NAPI_STATUS_THROWS(napi_get_undefined(env, &key));
-        NAPI_STATUS_THROWS(Convert(env, &v, valueEncoding_, val));
+        NAPI_STATUS_THROWS(Convert(env, &v, valueEncoding_, val, unsafe_));
       } else {
         assert(false);
       }
 
       NAPI_STATUS_THROWS(napi_set_element(env, rows, idx++, key));
       NAPI_STATUS_THROWS(napi_set_element(env, rows, idx++, val));
-
-      bytesRead += CurrentKey().size() + CurrentValue().size();
-      if (bytesRead > highWaterMarkBytes_) {
-        break;
-      }
-
-      if (deadline > 0 && database_->db->GetEnv()->NowMicros() > deadline) {
-        break;
-      }
     }
 
     napi_value ret;
@@ -1381,11 +1431,7 @@ NAPI_METHOD(db_get_many_sync) {
       NAPI_STATUS_THROWS(napi_get_null(env, &row));
     } else {
       ROCKS_STATUS_THROWS_NAPI(statuses[n]);
-      if (unsafe) {
-        NAPI_STATUS_THROWS(ConvertUnsafe(env, std::move(values[n]), valueEncoding, row));
-      } else {
-        NAPI_STATUS_THROWS(Convert(env, std::move(values[n]), valueEncoding, row));
-      }
+      NAPI_STATUS_THROWS(Convert(env, std::move(values[n]), valueEncoding, row, unsafe));
     }
     NAPI_STATUS_THROWS(napi_set_element(env, rows, n, row));
   }
@@ -1470,11 +1516,7 @@ NAPI_METHOD(db_get_many) {
             NAPI_STATUS_RETURN(napi_get_null(env, &row));
           } else {
             ROCKS_STATUS_RETURN_NAPI(state.statuses[n]);
-            if (unsafe) {
-              NAPI_STATUS_RETURN(ConvertUnsafe(env, std::move(state.values[n]), valueEncoding, row));
-            } else {
-              NAPI_STATUS_RETURN(Convert(env, std::move(state.values[n]), valueEncoding, row));
-            }
+            NAPI_STATUS_RETURN(Convert(env, std::move(state.values[n]), valueEncoding, row, unsafe));
           }
           NAPI_STATUS_RETURN(napi_set_element(env, argv[1], n, row));
         }
@@ -1672,7 +1714,7 @@ NAPI_METHOD(iterator_seek) {
         [=](auto& state) {
           iterator->Seek(state.target);
           return iterator->Status();
-         },
+        },
         [](auto& state, auto env, auto& argv) { return napi_ok; });
   } catch (const std::exception& e) {
     napi_throw_error(env, nullptr, e.what());

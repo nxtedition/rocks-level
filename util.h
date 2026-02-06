@@ -538,9 +538,11 @@ napi_status runAsync(napi_value asyncResourceName,
 
     ~Worker() {
       if (ref) {
+        ref = nullptr;
         napi_delete_reference(env, ref);
       }
       if (asyncWork) {
+        asyncWork = nullptr;
         napi_delete_async_work(env, asyncWork);
       }
     }

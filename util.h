@@ -439,7 +439,11 @@ napi_status Convert(napi_env env, T&& s, Encoding encoding, napi_value& result, 
   }
 }
 
-napi_status Convert(napi_env env, rocksdb::PinnableSlice&& s, Encoding encoding, napi_value& result, bool unsafe = false) {
+napi_status Convert(napi_env env,
+                    rocksdb::PinnableSlice&& s,
+                    Encoding encoding,
+                    napi_value& result,
+                    bool unsafe = false) {
   if (encoding == Encoding::Buffer) {
     if (unsafe) {
       auto s2 = new rocksdb::PinnableSlice(std::move(s));
@@ -457,9 +461,7 @@ napi_status Convert(napi_env env, rocksdb::PinnableSlice&& s, Encoding encoding,
 
 class HandleScope {
  public:
-  HandleScope(napi_env env) : env_(env) {
-    status_ = napi_open_handle_scope(env_, &scope_);
-  }
+  HandleScope(napi_env env) : env_(env) { status_ = napi_open_handle_scope(env_, &scope_); }
   ~HandleScope() {
     if (status_ == napi_ok && scope_) {
       napi_close_handle_scope(env_, scope_);
@@ -467,15 +469,16 @@ class HandleScope {
   }
   HandleScope(const HandleScope&) = delete;
   HandleScope& operator=(const HandleScope&) = delete;
+
  private:
   napi_env env_ = nullptr;
   napi_handle_scope scope_ = nullptr;
   napi_status status_ = napi_generic_failure;
 };
 
-template <typename State, typename T1, typename T2>
+template <typename State, int N, typename T1, typename T2>
 napi_status runAsync(State&& state,
-                     const std::string& name,
+                     const std::string_view& name,
                      napi_env env,
                      napi_value callback,
                      T1&& execute,
@@ -483,7 +486,9 @@ napi_status runAsync(State&& state,
   {
     napi_valuetype t;
     NAPI_STATUS_RETURN(napi_typeof(env, callback, &t));
-    if (t != napi_function) { return napi_function_expected; }
+    if (t != napi_function) {
+      return napi_function_expected;
+    }
   }
 
   struct Worker final {
@@ -510,9 +515,8 @@ napi_status runAsync(State&& state,
       NAPI_STATUS_THROWS_VOID(napi_get_global(env, &global));
 
       if (worker->status.ok()) {
-        std::vector<napi_value> argv;
+        std::array<napi_value, N> argv = {};
 
-        argv.resize(1);
         NAPI_STATUS_THROWS_VOID(napi_get_null(env, &argv[0]));
 
         const auto ret = worker->then(worker->state, env, argv);
@@ -533,8 +537,12 @@ napi_status runAsync(State&& state,
     }
 
     ~Worker() {
-      if (ref) { napi_delete_reference(env, ref); }
-      if (asyncWork) { napi_delete_async_work(env, asyncWork); }
+      if (ref) {
+        napi_delete_reference(env, ref);
+      }
+      if (asyncWork) {
+        napi_delete_async_work(env, asyncWork);
+      }
     }
 
     napi_env env = nullptr;
@@ -564,7 +572,7 @@ napi_status runAsync(State&& state,
 
   return napi_ok;
 }
-template <typename State, typename T1, typename T2>
+template <typename State, int N, typename T1, typename T2>
 napi_status runAsync(const std::string& name, napi_env env, napi_value callback, T1&& execute, T2&& then) {
-  return runAsync<State>(State{}, name, env, callback, std::forward<T1>(execute), std::forward<T2>(then));
+  return runAsync<State, N>(State{}, name, env, callback, std::forward<T1>(execute), std::forward<T2>(then));
 }

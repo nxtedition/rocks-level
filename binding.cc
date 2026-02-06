@@ -558,7 +558,7 @@ class Iterator final : public BaseIterator {
       bool finished = false;
     };
 
-    runAsync<State>(
+    runAsync<State, 2>(
         "iterator.nextv", env, callback,
         [=](auto& state) {
           state.keys.reserve(count);
@@ -624,8 +624,6 @@ class Iterator final : public BaseIterator {
           return rocksdb::Status::OK();
         },
         [=](auto& state, auto env, auto& argv) {
-          argv.resize(2);
-
           napi_value finished;
           NAPI_STATUS_RETURN(napi_get_boolean(env, state.finished, &finished));
 
@@ -1304,7 +1302,7 @@ NAPI_METHOD(db_open) {
 
     auto callback = argv[2];
 
-    runAsync<std::vector<rocksdb::ColumnFamilyHandle*>>(
+    runAsync<std::vector<rocksdb::ColumnFamilyHandle*>, 2>(
         "leveldown.open", env, callback,
         [=](auto& handles) {
           assert(!database->db);
@@ -1320,8 +1318,6 @@ NAPI_METHOD(db_open) {
           return status;
         },
         [=](auto& handles, auto env, auto& argv) {
-          argv.resize(2);
-
           NAPI_STATUS_RETURN(napi_create_object(env, &argv[1]));
 
           for (size_t n = 0; n < handles.size(); ++n) {
@@ -1358,7 +1354,7 @@ NAPI_METHOD(db_close) {
   auto callback = argv[1];
 
   struct State {};
-  runAsync<State>(
+  runAsync<State, 1>(
       "leveldown.close", env, callback, [=](auto& state) { return database->Close(); },
       [](auto& state, auto env, auto& argv) { return napi_ok; });
 
@@ -1483,7 +1479,7 @@ NAPI_METHOD(db_get_many) {
   state.readOptions.value_size_soft_limit = std::numeric_limits<int32_t>::max();
   NAPI_STATUS_THROWS(GetProperty(env, argv[2], "highWaterMarkBytes", state.readOptions.value_size_soft_limit));
 
-  runAsync(
+  runAsync<State, 2>(
       std::move(state), "leveldown.get_many", env, callback,
       [=](auto& state) {
         std::vector<rocksdb::Slice> keys;
@@ -1501,8 +1497,6 @@ NAPI_METHOD(db_get_many) {
         return rocksdb::Status::OK();
       },
       [=](auto& state, auto env, auto& argv) {
-        argv.resize(2);
-
         NAPI_STATUS_RETURN(napi_create_array_with_length(env, count, &argv[1]));
 
         for (auto n = 0; n < count; n++) {
@@ -1667,7 +1661,7 @@ NAPI_METHOD(db_flush_wal) {
   auto callback = argv[2];
 
   struct State {};
-  runAsync<State>(
+  runAsync<State, 1>(
       "leveldown.flush_wal", env, callback, [=](auto& state) { return database->db->FlushWAL(sync); },
       [](auto& state, auto env, auto& argv) { return napi_ok; });
 
@@ -1706,7 +1700,7 @@ NAPI_METHOD(iterator_seek) {
 
     auto callback = argv[2];
 
-    runAsync<State>(
+    runAsync<State, 1>(
         std::move(state), "leveldown.iterator_seek", env, callback,
         [=](auto& state) {
           iterator->Seek(state.target);
@@ -1919,7 +1913,7 @@ NAPI_METHOD(batch_write) {
 
   auto callback = argv[3];
 
-  runAsync<std::nullptr_t>(
+  runAsync<std::nullptr_t, 1>(
       "leveldown.batch_write", env, callback,
       [=](auto& state) {
         rocksdb::WriteOptions writeOptions;
@@ -2176,7 +2170,7 @@ NAPI_METHOD(db_compact_range) {
 
   auto callback = argv[2];
 
-  runAsync<std::nullptr_t>(
+  runAsync<std::nullptr_t, 1>(
       "leveldown.compact_range", env, callback,
       [=](auto& state) {
         rocksdb::CompactRangeOptions options;

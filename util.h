@@ -478,14 +478,6 @@ class HandleScope {
 
 template <typename State, typename T1, typename T2>
 napi_status runAsync(napi_value asyncResourceName, napi_env env, napi_value callback, T1&& execute, T2&& then) {
-  {
-    napi_valuetype t;
-    NAPI_STATUS_RETURN(napi_typeof(env, callback, &t));
-    if (t != napi_function) {
-      return napi_function_expected;
-    }
-  }
-
   struct Worker final {
     static void Execute(napi_env env, void* data) {
       auto worker = reinterpret_cast<Worker*>(data);

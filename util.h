@@ -478,7 +478,7 @@ class HandleScope {
 
 template <typename State, int N, typename T1, typename T2>
 napi_status runAsync(State&& state,
-                     const std::string_view& name,
+                     napi_value asyncResourceName,
                      napi_env env,
                      napi_value callback,
                      T1&& execute,
@@ -522,17 +522,17 @@ napi_status runAsync(State&& state,
         const auto ret = worker->then(worker->state, env, argv);
 
         if (ret == napi_ok) {
-          NAPI_STATUS_THROWS_VOID(napi_call_function(env, global, callback, argv.size(), argv.data(), nullptr));
+          napi_call_function(env, global, callback, argv.size(), argv.data(), nullptr);
         } else {
           const napi_extended_error_info* errInfo = nullptr;
           NAPI_STATUS_THROWS_VOID(napi_get_last_error_info(env, &errInfo));
           auto err = CreateError(env, std::nullopt,
                                  !errInfo || !errInfo->error_message ? "empty error message" : errInfo->error_message);
-          NAPI_STATUS_THROWS_VOID(napi_call_function(env, global, callback, 1, &err, nullptr));
+          napi_call_function(env, global, callback, 1, &err, nullptr);
         }
       } else {
         auto err = ToError(env, worker->status);
-        NAPI_STATUS_THROWS_VOID(napi_call_function(env, global, callback, 1, &err, nullptr));
+        napi_call_function(env, global, callback, 1, &err, nullptr);
       }
     }
 
@@ -561,8 +561,6 @@ napi_status runAsync(State&& state,
       std::unique_ptr<Worker>(new Worker{env, std::forward<T1>(execute), std::forward<T2>(then), std::move(state)});
 
   NAPI_STATUS_RETURN(napi_create_reference(env, callback, 1, &worker->ref));
-  napi_value asyncResourceName;
-  NAPI_STATUS_RETURN(napi_create_string_utf8(env, name.data(), name.size(), &asyncResourceName));
   NAPI_STATUS_RETURN(napi_create_async_work(env, callback, asyncResourceName, Worker::Execute, Worker::Complete,
                                             worker.get(), &worker->asyncWork));
 
@@ -573,6 +571,6 @@ napi_status runAsync(State&& state,
   return napi_ok;
 }
 template <typename State, int N, typename T1, typename T2>
-napi_status runAsync(const std::string& name, napi_env env, napi_value callback, T1&& execute, T2&& then) {
-  return runAsync<State, N>(State{}, name, env, callback, std::forward<T1>(execute), std::forward<T2>(then));
+napi_status runAsync(napi_value asyncResourceName, napi_env env, napi_value callback, T1&& execute, T2&& then) {
+  return runAsync<State, N>(State{}, asyncResourceName, env, callback, std::forward<T1>(execute), std::forward<T2>(then));
 }

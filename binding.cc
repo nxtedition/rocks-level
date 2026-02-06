@@ -442,13 +442,14 @@ class Iterator final : public BaseIterator {
         keyEncoding_(keyEncoding),
         valueEncoding_(valueEncoding),
         unsafe_(unsafe) {
-    if (keyFilter && keyFilter->size() > 0) {
+    if (keyFilter) {
       keyFilter_.emplace(*keyFilter);
       if (!keyFilter_->ok()) {
         throw std::invalid_argument("Invalid key filter regex");
       }
     }
-    if (valueFilter && valueFilter->size() > 0) {
+
+    if (valueFilter) {
       valueFilter_.emplace(*valueFilter);
       if (!valueFilter_->ok()) {
         throw std::invalid_argument("Invalid value filter regex");
@@ -537,10 +538,6 @@ class Iterator final : public BaseIterator {
     readOptions.ignore_range_deletions = false;
     NAPI_STATUS_THROWS(GetProperty(env, options, "ignoreRangeDeletions", readOptions.ignore_range_deletions));
 
-    if (!values) {
-      readOptions.allow_unprepared_value = true;
-    }
-
     // uint32_t timeout = 0;
     // NAPI_STATUS_THROWS(GetProperty(env, options, "timeout", timeout));
 
@@ -594,13 +591,13 @@ class Iterator final : public BaseIterator {
 
             bytesRead += CurrentKey().size() + CurrentValue().size();
 
-            if (keyFilter_ && !re2::RE2::PartialMatch(CurrentKey().ToStringView(), *keyFilter_)) {
-              continue;
-            }
+            // if (keyFilter_ && !re2::RE2::PartialMatch(CurrentKey().ToStringView(), *keyFilter_)) {
+            //   continue;
+            // }
 
-            if (valueFilter_ && !re2::RE2::PartialMatch(CurrentValue().ToStringView(), *valueFilter_)) {
-              continue;
-            }
+            // if (valueFilter_ && !re2::RE2::PartialMatch(CurrentValue().ToStringView(), *valueFilter_)) {
+            //   continue;
+            // }
 
             if (keys_ && values_) {
               rocksdb::PinnableSlice k;

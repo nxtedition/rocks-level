@@ -591,13 +591,13 @@ class Iterator final : public BaseIterator {
 
             bytesRead += CurrentKey().size() + CurrentValue().size();
 
-            // if (keyFilter_ && !re2::RE2::PartialMatch(CurrentKey().ToStringView(), *keyFilter_)) {
-            //   continue;
-            // }
+            if (keyFilter_ && !re2::RE2::PartialMatch(CurrentKey().ToStringView(), *keyFilter_)) {
+              continue;
+            }
 
-            // if (valueFilter_ && !re2::RE2::PartialMatch(CurrentValue().ToStringView(), *valueFilter_)) {
-            //   continue;
-            // }
+            if (valueFilter_ && !re2::RE2::PartialMatch(CurrentValue().ToStringView(), *valueFilter_)) {
+              continue;
+            }
 
             if (keys_ && values_) {
               rocksdb::PinnableSlice k;

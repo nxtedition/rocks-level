@@ -14,7 +14,19 @@
       "Bash(git submodule update:*)",
       "Bash(git submodule:*)",
       "Bash(yarn build:*)",
-      "Bash(yarn rebuild:*)"
+      "Bash(yarn rebuild:*)",
+      "Bash(npx tape:*)",
+      "Bash(echo \"=== In binding.gyp ===\" grep \"absl/base/internal\" binding.gyp echo \"\" echo \"=== Available \\(non-test\\) files ===\" ls deps/abseil-cpp/absl/base/internal/*.cc)",
+      "Bash(echo \"=== Checking for abseil source requirements ===\" echo \"\" echo \"profiling sources:\" ls /Users/ronagy/GitHub/nxtedition/rocks-level/deps/abseil-cpp/absl/profiling/internal/*.cc)",
+      "Bash(echo \"none found\" echo \"\" echo \"crc sources:\" ls /Users/ronagy/GitHub/nxtedition/rocks-level/deps/abseil-cpp/absl/crc/internal/*.cc)",
+      "Bash(echo \"NONE INCLUDED!\" echo \"\" echo \"=== Available log sources ===\" ls /Users/ronagy/GitHub/nxtedition/rocks-level/deps/abseil-cpp/absl/log/*.cc)",
+      "Bash(head -20 echo \"\" echo \"=== Log internal sources ===\" ls /Users/ronagy/GitHub/nxtedition/rocks-level/deps/abseil-cpp/absl/log/internal/*.cc)",
+      "Bash(echo \"=== Required log sources \\(non-test\\) ===\" ls /Users/ronagy/GitHub/nxtedition/rocks-level/deps/abseil-cpp/absl/log/*.cc)",
+      "Bash(CFLAGS=\"-g -O0\" CXXFLAGS=\"-g -O0\" npm run rebuild)",
+      "Bash(node-gyp rebuild:*)",
+      "Bash(npx node-gyp rebuild:*)",
+      "Bash(git rm:*)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ]
   }
 }

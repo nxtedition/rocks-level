@@ -4,9 +4,3 @@
 [submodule "deps/liburing/liburing"]
 	path = deps/liburing/liburing
 	url = https://github.com/axboe/liburing.git
-[submodule "deps/re2"]
-	path = deps/re2
-	url = https://github.com/google/re2
-[submodule "deps/abseil-cpp"]
-	path = deps/abseil-cpp
-	url = https://github.com/abseil/abseil-cpp

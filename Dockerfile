@@ -57,17 +57,31 @@ RUN cd /opt && git clone https://github.com/jemalloc/jemalloc.git && cd jemalloc
   cp lib/libjemalloc.a /usr/lib/x86_64-linux-gnu/ && \
   cp -rv include/jemalloc /usr/include/
 
-# RUN cd /opt && git clone https://github.com/abseil/abseil-cpp.git && cd abseil-cpp && \
-#   mkdir build && cd build && \
-#   cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=ON && \
-#   make && \
-#   make install
+RUN cd /opt && git clone --depth 1 --branch 1.2.1 https://github.com/google/snappy.git && cd snappy && \
+  git submodule update --init && \
+  cmake . -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+    -DCMAKE_CXX_FLAGS="-march=znver3 -mtune=znver3 -O3" \
+    -DSNAPPY_BUILD_TESTS=OFF \
+    -DSNAPPY_BUILD_BENCHMARKS=OFF && \
+  make -j"$(nproc)" && \
+  make install && ldconfig
 
-# RUN cd /opt && git clone https://github.com/google/re2.git && cd re2 && \
-#   cmake . -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=ON && \
-#   make && \
-#   cp libre2.a /usr/lib/x86_64-linux-gnu/ && \
-#   mkdir -p /usr/include/re2 && cp re2/*.h /usr/include/re2/
+RUN cd /opt && git clone --depth 1 --branch 20240722.0 https://github.com/abseil/abseil-cpp.git && cd abseil-cpp && \
+  mkdir build && cd build && \
+  cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+    -DCMAKE_CXX_FLAGS="-march=znver3 -mtune=znver3 -O3" \
+    -DABSL_BUILD_TESTING=OFF \
+    -DABSL_PROPAGATE_CXX_STD=ON && \
+  make -j"$(nproc)" && \
+  make install && ldconfig
+
+RUN cd /opt && git clone --depth 1 --branch 2024-07-02 https://github.com/google/re2.git && cd re2 && \
+  cmake . -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+    -DCMAKE_CXX_FLAGS="-march=znver3 -mtune=znver3 -O3" \
+    -DBUILD_SHARED_LIBS=OFF \
+    -DRE2_BUILD_TESTING=OFF && \
+  make -j"$(nproc)" && \
+  make install && ldconfig
 
 # Copy source
 WORKDIR /rocks-level

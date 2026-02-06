@@ -218,17 +218,26 @@ class RocksLevel extends AbstractLevel {
   _batch (operations, options, callback) {
     callback = fromCallback(callback, kPromise)
 
-    const batch = this._chainedBatch()
-    for (const { type, key, value, ...rest } of operations) {
+    const batch = binding.batch_init()
+
+    for (let { type, key, value, ...rest } of operations) {
       if (type === 'del') {
-        batch.del(key, rest)
+        key = typeof key === 'string' ? Buffer.from(key) : key
+        binding.batch_del(batch, key, rest)
       } else if (type === 'put') {
-        batch.put(key, value, rest)
+        key = typeof key === 'string' ? Buffer.from(key) : key
+        value = typeof value === 'string' ? Buffer.from(value) : value
+        binding.batch_put(batch, key, value, rest)
       } else {
         assert(false)
       }
     }
-    batch.write(options, callback)
+
+    binding.batch_write(this[kContext], batch, options ?? {}, (err, val) => {
+      binding.batch_clear(batch)
+      callback(err, val)
+    })
+
     return callback[kPromise]
   }
 

@@ -589,8 +589,8 @@ class Iterator final : public BaseIterator {
     //   : std::chrono::microseconds::zero();
 
     return std::make_unique<Iterator>(database, column, reverse, keys, values, limit, lt, lte, gt, gte,
-                                      highWaterMarkBytes, keyFilter, valueFilter, keyEncoding, valueEncoding,
-                                      unsafe, readOptions);
+                                      highWaterMarkBytes, keyFilter, valueFilter, keyEncoding, valueEncoding, unsafe,
+                                      readOptions);
   }
 
   napi_value nextv(napi_env env, uint32_t count, uint32_t timeout, napi_value callback) {

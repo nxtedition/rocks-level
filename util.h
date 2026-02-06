@@ -186,7 +186,6 @@ static napi_status GetString(napi_env env, napi_value from, rocksdb::PinnableSli
   if (type == napi_string) {
     size_t length = 0;
     NAPI_STATUS_RETURN(napi_get_value_string_utf8(env, from, nullptr, 0, &length));
-
     napi_status status = napi_ok;
     to.GetSelf()->resize_and_overwrite(length, [&](char* buf, size_t count) {
       status = napi_get_value_string_utf8(env, from, buf, length + 1, &length);

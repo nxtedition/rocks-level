@@ -164,10 +164,12 @@ static napi_status GetString(napi_env env, napi_value from, std::string& to) {
   if (type == napi_string) {
     size_t length = 0;
     NAPI_STATUS_RETURN(napi_get_value_string_utf8(env, from, nullptr, 0, &length));
-    // TODO (perf): Avoid zero initialization...
-    to.resize(length, '\0');
-    NAPI_STATUS_RETURN(napi_get_value_string_utf8(env, from, &to[0], length + 1, &length));
-    to[length] = 0;
+    napi_status status = napi_ok;
+    to.resize_and_overwrite(length, [&](char* buf, size_t count) {
+      status = napi_get_value_string_utf8(env, from, buf, length + 1, &length);
+      return status == napi_ok ? length : 0;
+    });
+    NAPI_STATUS_RETURN(status);
   } else {
     rocksdb::Slice slice;
     NAPI_STATUS_RETURN(GetString(env, from, slice));
@@ -184,9 +186,13 @@ static napi_status GetString(napi_env env, napi_value from, rocksdb::PinnableSli
   if (type == napi_string) {
     size_t length = 0;
     NAPI_STATUS_RETURN(napi_get_value_string_utf8(env, from, nullptr, 0, &length));
-    // TODO (perf): Avoid zero initialization...
-    to.GetSelf()->resize(length, '\0');
-    NAPI_STATUS_RETURN(napi_get_value_string_utf8(env, from, to.GetSelf()->data(), length + 1, &length));
+
+    napi_status status = napi_ok;
+    to.GetSelf()->resize_and_overwrite(length, [&](char* buf, size_t count) {
+      status = napi_get_value_string_utf8(env, from, buf, length + 1, &length);
+      return status == napi_ok ? length : 0;
+    });
+    NAPI_STATUS_RETURN(status);
     to.PinSelf();
   } else {
     rocksdb::Slice slice;

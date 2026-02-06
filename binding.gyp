@@ -20,7 +20,7 @@
                           "/usr/local/lib/libre2.a"
                         ],
                         "cflags": ["-march=znver3", "-mtune=znver3"],
-                        "ccflags": ["-flto", '-std=c++20', "-march=znver3", "-mtune=znver3"],
+                        "ccflags": ["-flto", '-std=c++23', "-march=znver3", "-mtune=znver3"],
                         "cflags!": ["-fno-exceptions"],
                         "cflags_cc!": ["-fno-exceptions"],
                         "ldflags": ["-flto", "-fuse-linker-plugin"],
@@ -51,7 +51,7 @@
                             ],
                             "OTHER_CPLUSPLUSFLAGS": [
                                 "-mmacosx-version-min=13.4.0",
-                                "-std=c++20",
+                                "-std=c++23",
                                 "-fno-omit-frame-pointer",
                                 "-momit-leaf-frame-pointer",
                                 "-arch x86_64",

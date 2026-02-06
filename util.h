@@ -477,11 +477,7 @@ class HandleScope {
 };
 
 template <typename State, typename T1, typename T2>
-napi_status runAsync(napi_value asyncResourceName,
-                     napi_env env,
-                     napi_value callback,
-                     T1&& execute,
-                     T2&& then) {
+napi_status runAsync(napi_value asyncResourceName, napi_env env, napi_value callback, T1&& execute, T2&& then) {
   {
     napi_valuetype t;
     NAPI_STATUS_RETURN(napi_typeof(env, callback, &t));
@@ -505,6 +501,10 @@ napi_status runAsync(napi_value asyncResourceName,
     static void Complete(napi_env env, napi_status status, void* data) {
       auto worker = std::unique_ptr<Worker>(reinterpret_cast<Worker*>(data));
 
+      if (status == napi_cancelled) {
+        return;  // env is tearing down, just clean up
+      }
+
       HandleScope scope(env);
 
       napi_value callback;
@@ -513,27 +513,20 @@ napi_status runAsync(napi_value asyncResourceName,
       napi_value global;
       NAPI_STATUS_THROWS_VOID(napi_get_global(env, &global));
 
-      if (worker->status.ok()) {
-        std::array<napi_value, 2> argv = {};
+      std::array<napi_value, 2> argv;
+      NAPI_STATUS_THROWS_VOID(napi_get_null(env, &argv[0]));
+      NAPI_STATUS_THROWS_VOID(napi_get_null(env, &argv[1]));
 
-        NAPI_STATUS_THROWS_VOID(napi_get_null(env, &argv[0]));
-        NAPI_STATUS_THROWS_VOID(napi_get_null(env, &argv[1]));
-
-        const auto ret = worker->then(worker->state, env, &argv[1]);
-
-        if (ret == napi_ok) {
-          napi_call_function(env, global, callback, argv.size(), argv.data(), nullptr);
-        } else {
-          const napi_extended_error_info* errInfo = nullptr;
-          NAPI_STATUS_THROWS_VOID(napi_get_last_error_info(env, &errInfo));
-          auto err = CreateError(env, std::nullopt,
-                                 !errInfo || !errInfo->error_message ? "empty error message" : errInfo->error_message);
-          napi_call_function(env, global, callback, 1, &err, nullptr);
-        }
-      } else {
-        auto err = ToError(env, worker->status);
-        napi_call_function(env, global, callback, 1, &err, nullptr);
+      if (!worker->status.ok()) {
+        argv[0] = ToError(env, worker->status);
+      } else if (worker->then(worker->state, env, &argv[1]) != napi_ok) {
+        const napi_extended_error_info* errInfo = nullptr;
+        NAPI_STATUS_THROWS_VOID(napi_get_last_error_info(env, &errInfo));
+        argv[0] = CreateError(env, std::nullopt,
+                              !errInfo || !errInfo->error_message ? "empty error message" : errInfo->error_message);
       }
+
+      napi_call_function(env, global, callback, argv.size(), argv.data(), nullptr);
     }
 
     ~Worker() {
@@ -559,8 +552,7 @@ napi_status runAsync(napi_value asyncResourceName,
     rocksdb::Status status = rocksdb::Status::OK();
   };
 
-  auto worker =
-      std::unique_ptr<Worker>(new Worker{env, std::forward<T1>(execute), std::forward<T2>(then)});
+  auto worker = std::unique_ptr<Worker>(new Worker{env, std::forward<T1>(execute), std::forward<T2>(then)});
 
   NAPI_STATUS_RETURN(napi_create_reference(env, callback, 1, &worker->ref));
   NAPI_STATUS_RETURN(napi_create_async_work(env, callback, asyncResourceName, Worker::Execute, Worker::Complete,
@@ -576,11 +568,11 @@ napi_status runAsync(napi_value asyncResourceName,
 template <typename State, typename T1>
 napi_status runAsync(napi_value asyncResourceName, napi_env env, napi_value callback, T1&& execute) {
   return runAsync<State>(asyncResourceName, env, callback, std::forward<T1>(execute),
-                            [](auto& state, auto env, auto result) { return napi_ok; });
+                         [](auto& state, auto env, auto result) { return napi_ok; });
 }
 
 template <typename T1>
 napi_status runAsync(napi_value asyncResourceName, napi_env env, napi_value callback, T1&& execute) {
   return runAsync<std::nullptr_t>(asyncResourceName, env, callback, std::forward<T1>(execute),
-                         [](auto& state, auto env, auto result) { return napi_ok; });
+                                  [](auto& state, auto env, auto result) { return napi_ok; });
 }

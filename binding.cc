@@ -948,6 +948,11 @@ napi_status InitOptions(napi_env env, T& columnOptions, const U& options) {
     columnOptions.compression_opts.max_dict_bytes = 16 * 1024;
     columnOptions.compression_opts.zstd_max_train_bytes = 16 * 1024 * 100;
     // TODO (perf): compression_opts.parallel_threads
+  } else {
+    columnOptions.compression = rocksdb::kNoCompression;
+    for (auto& c : columnOptions.compression_per_level) {
+      c = rocksdb::kNoCompression;
+    }
   }
 
   std::string prefixExtractor;

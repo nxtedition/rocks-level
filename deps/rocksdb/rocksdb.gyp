@@ -9,6 +9,7 @@
         "include_dirs": ["rocksdb/include/"]
       },
       "defines": [
+        "SNAPPY=1",
         "ZSTD=1",
         "ZSTD_STATIC_LINKING_ONLY=1",
         "ROCKSDB_BACKTRACE=1",
@@ -107,7 +108,8 @@
                 "/usr/lib/x86_64-linux-gnu/libglog.a",
                 "/usr/lib/x86_64-linux-gnu/libiberty.a",
                 "/usr/lib/x86_64-linux-gnu/libunwind.a",
-                "/usr/lib/x86_64-linux-gnu/libgflags.a"
+                "/usr/lib/x86_64-linux-gnu/libgflags.a",
+                "/usr/local/lib/libsnappy.a"
                 # "/usr/lib/x86_64-linux-gnu/libjemalloc.a"
               ],
             },

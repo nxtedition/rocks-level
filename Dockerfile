@@ -59,6 +59,7 @@ RUN cd /opt && git clone https://github.com/jemalloc/jemalloc.git && cd jemalloc
 
 RUN cd /opt && git clone --depth 1 --branch 1.2.1 https://github.com/google/snappy.git && cd snappy && \
   git submodule update --init && \
+  sed -i 's/-fno-rtti//g' CMakeLists.txt && \
   cmake . -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
     -DCMAKE_CXX_FLAGS="-march=znver3 -mtune=znver3 -O3" \
     -DSNAPPY_BUILD_TESTS=OFF \

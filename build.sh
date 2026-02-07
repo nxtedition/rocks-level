@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+echo "Initializing submodules..."
+git submodule update --init
+
 echo "Building image..."
 docker build --iidfile prebuilds.iid .
 

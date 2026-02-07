@@ -2090,6 +2090,7 @@ struct Updates : public BatchIterator, public Closable {
   Database* database_;
   int64_t start_;
   std::unique_ptr<rocksdb::TransactionLogIterator> iterator_;
+  rocksdb::BatchResult batchResult_;
 
  private:
   napi_ref ref_ = nullptr;
@@ -2150,35 +2151,33 @@ NAPI_METHOD(updates_next) {
   napi_value resourceName;
   NAPI_STATUS_THROWS(updates->database_->GetResourceName(env, ResourceLeveldownUpdatesSince, resourceName));
 
-  struct State {
-    rocksdb::BatchResult batchResult;
-  };
+  updates->batchResult_ = {};
 
-  runAsync<State>(
+  NAPI_STATUS_THROWS(runAsync<std::nullptr_t>(
       resourceName, env, callback,
-      [=](auto& state) {
+      [updates](auto& state) {
+        rocksdb::Status s;
         if (!updates->iterator_) {
           rocksdb::TransactionLogIterator::ReadOptions options;
-          ROCKS_STATUS_RETURN(updates->database_->db->GetUpdatesSince(updates->start_, &updates->iterator_, options));
+          s = updates->database_->db->GetUpdatesSince(updates->start_, &updates->iterator_, options);
         } else {
           updates->iterator_->Next();
+          s = updates->iterator_->status();
         }
 
-        ROCKS_STATUS_RETURN(updates->iterator_->status());
-
-        if (updates->iterator_->Valid()) {
-          state.batchResult = updates->iterator_->GetBatch();
+        if (s.ok() && updates->iterator_ && updates->iterator_->Valid()) {
+          updates->batchResult_ = updates->iterator_->GetBatch();
         }
 
-        return rocksdb::Status::OK();
+        return s;
       },
-      [=](auto& state, napi_env env, napi_value* result) {
-        if (state.batchResult.writeBatchPtr != nullptr) {
+      [updates](auto& state, napi_env env, napi_value* result) {
+        if (updates->batchResult_.writeBatchPtr != nullptr) {
           napi_value rows;
           napi_value sequence;
 
-          NAPI_STATUS_RETURN(updates->Iterate(env, *state.batchResult.writeBatchPtr, &rows));
-          NAPI_STATUS_RETURN(napi_create_int64(env, state.batchResult.sequence, &sequence));
+          NAPI_STATUS_RETURN(updates->Iterate(env, *updates->batchResult_.writeBatchPtr, &rows));
+          NAPI_STATUS_RETURN(napi_create_int64(env, updates->batchResult_.sequence, &sequence));
 
           NAPI_STATUS_RETURN(napi_create_object(env, result));
           NAPI_STATUS_RETURN(napi_set_named_property(env, *result, "rows", rows));
@@ -2186,7 +2185,9 @@ NAPI_METHOD(updates_next) {
         }
 
         return napi_ok;
-      });
+      }));
+
+  return 0;
 }
 
 NAPI_METHOD(updates_close) {

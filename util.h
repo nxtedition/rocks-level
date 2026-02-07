@@ -420,13 +420,13 @@ static napi_status GetProperty(napi_env env,
 }
 
 template <typename T>
-napi_status Convert(napi_env env, T&& s, Encoding encoding, napi_value& result, bool unsafe = false) {
-  if (!s) {
-    return napi_get_null(env, &result);
+napi_status Convert(napi_env env, const T& s, Encoding encoding, napi_value& result, bool unsafe = false) {
+  if constexpr (requires(std::decay_t<T> v) { *v; }) {
+    return s ? Convert(env, *s, encoding, result, unsafe) : napi_get_null(env, &result);
   } else if (encoding == Encoding::Buffer) {
-    return napi_create_buffer_copy(env, s->size(), s->data(), nullptr, &result);
+    return napi_create_buffer_copy(env, s.size(), s.data(), nullptr, &result);
   } else if (encoding == Encoding::String) {
-    return napi_create_string_utf8(env, s->data(), s->size(), &result);
+    return napi_create_string_utf8(env, s.data(), s.size(), &result);
   } else {
     return napi_invalid_arg;
   }

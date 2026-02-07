@@ -756,18 +756,14 @@ class Iterator final : public BaseIterator {
       napi_value val;
 
       if (keys_ && values_) {
-        const auto k = CurrentKey();
-        const auto v = CurrentValue();
-        NAPI_STATUS_THROWS(Convert(env, &k, keyEncoding_, key, unsafe_));
-        NAPI_STATUS_THROWS(Convert(env, &v, valueEncoding_, val, unsafe_));
+        NAPI_STATUS_THROWS(Convert(env, CurrentKey(), keyEncoding_, key, unsafe_));
+        NAPI_STATUS_THROWS(Convert(env, CurrentValue(), valueEncoding_, val, unsafe_));
       } else if (keys_) {
-        const auto k = CurrentKey();
-        NAPI_STATUS_THROWS(Convert(env, &k, keyEncoding_, key, unsafe_));
+        NAPI_STATUS_THROWS(Convert(env, CurrentKey(), keyEncoding_, key, unsafe_));
         NAPI_STATUS_THROWS(napi_get_undefined(env, &val));
       } else if (values_) {
-        const auto v = CurrentValue();
         NAPI_STATUS_THROWS(napi_get_undefined(env, &key));
-        NAPI_STATUS_THROWS(Convert(env, &v, valueEncoding_, val, unsafe_));
+        NAPI_STATUS_THROWS(Convert(env, CurrentValue(), valueEncoding_, val, unsafe_));
       } else {
         assert(false);
       }
@@ -871,7 +867,7 @@ NAPI_METHOD(db_get_location) {
   NAPI_STATUS_THROWS(napi_get_value_external(env, argv[0], reinterpret_cast<void**>(&database)));
 
   napi_value result;
-  NAPI_STATUS_THROWS(Convert(env, &database->location, Encoding::String, result));
+  NAPI_STATUS_THROWS(Convert(env, database->location, Encoding::String, result));
 
   return result;
 }
@@ -1196,7 +1192,7 @@ NAPI_METHOD(db_get_identity) {
   ROCKS_STATUS_THROWS_NAPI(database->db->GetDbIdentity(identity));
 
   napi_value result;
-  NAPI_STATUS_THROWS(Convert(env, &identity, Encoding::String, result));
+  NAPI_STATUS_THROWS(Convert(env, identity, Encoding::String, result));
 
   return result;
 }

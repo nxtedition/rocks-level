@@ -406,13 +406,6 @@ static napi_status GetProperty(napi_env env,
     return napi_invalid_arg;
   }
 
-  bool has = false;
-  NAPI_STATUS_RETURN(napi_has_named_property(env, obj, key.data(), &has));
-
-  if (!has) {
-    return required ? napi_invalid_arg : napi_ok;
-  }
-
   napi_value value;
   NAPI_STATUS_RETURN(napi_get_named_property(env, obj, key.data(), &value));
 

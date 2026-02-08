@@ -606,7 +606,7 @@ class Iterator final : public BaseIterator {
     napi_value resourceName;
     NAPI_STATUS_THROWS(database_->GetResourceName(env, ResourceIteratorNextv, resourceName));
 
-    runAsync<State>(
+    NAPI_STATUS_THROWS(runAsync<State>(
         resourceName, env, callback,
         [=](auto& state) {
           state.keys.reserve(count);
@@ -704,7 +704,7 @@ class Iterator final : public BaseIterator {
           NAPI_STATUS_RETURN(napi_set_named_property(env, *result, "finished", finished));
 
           return napi_ok;
-        });
+        }));
 
     return 0;
   }
@@ -1359,7 +1359,7 @@ NAPI_METHOD(db_open) {
     napi_value resourceName;
     NAPI_STATUS_THROWS(database->GetResourceName(env, ResourceLeveldownOpen, resourceName));
 
-    runAsync<std::vector<rocksdb::ColumnFamilyHandle*>>(
+    NAPI_STATUS_THROWS(runAsync<std::vector<rocksdb::ColumnFamilyHandle*>>(
         resourceName, env, callback,
         [=](auto& handles) {
           assert(!database->db);
@@ -1392,7 +1392,7 @@ NAPI_METHOD(db_open) {
           }
 
           return napi_ok;
-        });
+        }));
   }
 
   return 0;
@@ -1413,7 +1413,7 @@ NAPI_METHOD(db_close) {
   napi_value resourceName;
   NAPI_STATUS_THROWS(database->GetResourceName(env, ResourceLeveldownClose, resourceName));
 
-  runAsync(resourceName, env, callback, [=](auto& state) { return database->Close(); });
+  NAPI_STATUS_THROWS(runAsync(resourceName, env, callback, [=](auto& state) { return database->Close(); }));
 
   return 0;
 }
@@ -1539,7 +1539,7 @@ NAPI_METHOD(db_get_many) {
     std::vector<rocksdb::PinnableSlice> values;
   };
 
-  runAsync<State>(
+  NAPI_STATUS_THROWS(runAsync<State>(
       resourceName, env, callback,
       [=, keys = std::move(keys), readOptions = std::move(readOptions)](auto& state) {
         std::vector<rocksdb::Slice> keys2;
@@ -1572,7 +1572,7 @@ NAPI_METHOD(db_get_many) {
         }
 
         return napi_ok;
-      });
+      }));
 
   return 0;
 }
@@ -1722,7 +1722,7 @@ NAPI_METHOD(db_flush_wal) {
   napi_value resourceName;
   NAPI_STATUS_THROWS(database->GetResourceName(env, ResourceLeveldownFlushWal, resourceName));
 
-  runAsync(resourceName, env, callback, [=](auto& state) { return database->db->FlushWAL(sync); });
+  NAPI_STATUS_THROWS(runAsync(resourceName, env, callback, [=](auto& state) { return database->db->FlushWAL(sync); }));
 
   return 0;
 }
@@ -1759,10 +1759,10 @@ NAPI_METHOD(iterator_seek) {
     napi_value resourceName;
     NAPI_STATUS_THROWS(iterator->database_->GetResourceName(env, ResourceLeveldownIteratorSeek, resourceName));
 
-    runAsync(resourceName, env, callback, [iterator, target = std::move(target)](auto& state) {
+    NAPI_STATUS_THROWS(runAsync(resourceName, env, callback, [iterator, target = std::move(target)](auto& state) {
       iterator->Seek(target);
       return iterator->Status();
-    });
+    }));
   } catch (const std::exception& e) {
     napi_throw_error(env, nullptr, e.what());
     return nullptr;
@@ -1972,12 +1972,12 @@ NAPI_METHOD(batch_write) {
   napi_value resourceName;
   NAPI_STATUS_THROWS(database->GetResourceName(env, ResourceLeveldownBatchWrite, resourceName));
 
-  runAsync(resourceName, env, callback, [=](auto& state) {
+  NAPI_STATUS_THROWS(runAsync(resourceName, env, callback, [=](auto& state) {
     rocksdb::WriteOptions writeOptions;
     writeOptions.sync = sync;
     writeOptions.low_pri = lowPriority;
     return database->db->Write(writeOptions, batch);
-  });
+  }));
 
   return 0;
 }
@@ -2152,20 +2152,19 @@ NAPI_METHOD(updates_next) {
   NAPI_STATUS_THROWS(runAsync<std::nullptr_t>(
       resourceName, env, callback,
       [updates](auto& state) {
-        rocksdb::Status s;
         if (!updates->iterator_) {
           rocksdb::TransactionLogIterator::ReadOptions options;
-          s = updates->database_->db->GetUpdatesSince(updates->start_, &updates->iterator_, options);
+          NAPI_STATUS_RETURN(updates->database_->db->GetUpdatesSince(updates->start_, &updates->iterator_, options));
         } else {
           updates->iterator_->Next();
-          s = updates->iterator_->status();
+          NAPI_STATUS_RETURN(updates->iterator_->status());
         }
 
-        if (s.ok() && updates->iterator_ && updates->iterator_->Valid()) {
+        if (updates->iterator_ && updates->iterator_->Valid()) {
           updates->batchResult_ = updates->iterator_->GetBatch();
         }
 
-        return s;
+        return rocksdb::Status::OK();
       },
       [updates](auto& state, napi_env env, napi_value* result) {
         if (updates->batchResult_.writeBatchPtr != nullptr) {
@@ -2240,14 +2239,14 @@ NAPI_METHOD(db_compact_range) {
   napi_value resourceName;
   NAPI_STATUS_THROWS(database->GetResourceName(env, ResourceLeveldownCompactRange, resourceName));
 
-  runAsync(resourceName, env, callback, [=](auto& state) {
+  NAPI_STATUS_THROWS(runAsync(resourceName, env, callback, [=](auto& state) {
     rocksdb::CompactRangeOptions options;
 
     auto begin = start ? std::make_unique<rocksdb::Slice>(*start) : nullptr;
     auto finish = end ? std::make_unique<rocksdb::Slice>(*end) : nullptr;
 
     return database->db->CompactRange(options, begin.get(), finish.get());
-  });
+  }));
 
   return 0;
 }

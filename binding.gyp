@@ -17,13 +17,14 @@
                           "/usr/lib/include",
                         ],
                         "libraries": [
-                          "/usr/local/lib/libre2.a"
+                          "/usr/local/lib/libre2.a",
+                          "<!@(ls /usr/local/lib/libabsl_*.a)"
                         ],
-                        "cflags": ["-march=znver3", "-mtune=znver3"],
-                        "ccflags": ["-flto", '-std=c++23', "-march=znver3", "-mtune=znver3"],
+                        "cflags": [],
+                        "cflags_cc": ["-flto", "-std=c++23"],
                         "cflags!": ["-fno-exceptions"],
                         "cflags_cc!": ["-fno-exceptions"],
-                        "ldflags": ["-flto", "-fuse-linker-plugin"],
+                        "ldflags": ["-flto", "-fuse-linker-plugin", "-Wl,--whole-archive,/usr/local/lib/libsnappy.a,--no-whole-archive"],
                     },
                 ],
                 [

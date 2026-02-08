@@ -1,13 +1,16 @@
-FROM node:25.6.0
+FROM node:25.6.0-trixie
 
 ENV CMAKE_BUILD_PARALLEL_LEVEL=32 MAKEFLAGS=-j32 JOBS=32 DEBUG_LEVEL=0
+
+# Install build dependencies for gcc
+RUN apt update && apt install -y build-essential libgmp-dev libmpfr-dev libmpc-dev flex bison wget
 
 RUN apt update && apt install liburing-dev cmake pip -y
 
 # Let pip write to system site-packages (Debian 12 + PEP 668)
 ENV PIP_BREAK_SYSTEM_PACKAGES=1
 
-RUN git clone --depth 1 --branch liburing-2.12 https://git.kernel.dk/liburing.git /tmp/liburing && \
+RUN git clone --depth 1 --branch liburing-2.14 https://github.com/axboe/liburing.git /tmp/liburing && \
     cd /tmp/liburing && ./configure && make -j"$(nproc)" && make install && ldconfig
 
 # Clone and build folly

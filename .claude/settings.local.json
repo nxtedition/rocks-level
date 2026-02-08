@@ -27,7 +27,8 @@
       "Bash(npx node-gyp rebuild:*)",
       "Bash(git rm:*)",
       "WebFetch(domain:raw.githubusercontent.com)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "WebFetch(domain:github.com)"
     ]
   }
 }

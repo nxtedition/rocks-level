@@ -24,7 +24,7 @@
                         "cflags_cc": ["-flto", "-std=c++23", "-march=znver3", "-mtune=znver3"],
                         "cflags!": ["-fno-exceptions"],
                         "cflags_cc!": ["-fno-exceptions"],
-                        "ldflags": ["-flto", "-fuse-linker-plugin", "-Wl,--whole-archive,/usr/local/lib/libsnappy.a,--no-whole-archive"],
+                        "ldflags": ["-flto", "-fuse-linker-plugin", "-Wl,--whole-archive,/usr/local/lib/libsnappy.a,--no-whole-archive", "-Wl,--whole-archive,/usr/local/lib/libjemalloc.a,--no-whole-archive"],
                     },
                 ],
                 [

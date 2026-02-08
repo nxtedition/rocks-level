@@ -2087,9 +2087,6 @@ struct Updates : public BatchIterator, public Closable {
   int64_t start_;
   std::unique_ptr<rocksdb::TransactionLogIterator> iterator_;
   rocksdb::BatchResult batchResult_;
-
- private:
-  napi_ref ref_ = nullptr;
 };
 
 NAPI_METHOD(updates_init) {
@@ -2154,13 +2151,13 @@ NAPI_METHOD(updates_next) {
       [updates](auto& state) {
         if (!updates->iterator_) {
           rocksdb::TransactionLogIterator::ReadOptions options;
-          NAPI_STATUS_RETURN(updates->database_->db->GetUpdatesSince(updates->start_, &updates->iterator_, options));
+          ROCKS_STATUS_RETURN(updates->database_->db->GetUpdatesSince(updates->start_, &updates->iterator_, options));
         } else {
           updates->iterator_->Next();
-          NAPI_STATUS_RETURN(updates->iterator_->status());
+          ROCKS_STATUS_RETURN(updates->iterator_->status());
         }
 
-        if (updates->iterator_ && updates->iterator_->Valid()) {
+        if (updates->iterator_->Valid()) {
           updates->batchResult_ = updates->iterator_->GetBatch();
         }
 

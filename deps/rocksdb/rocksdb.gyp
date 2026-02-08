@@ -9,7 +9,6 @@
         "include_dirs": ["rocksdb/include/"]
       },
       "defines": [
-        "SNAPPY=1",
         "ZSTD=1",
         "ZSTD_STATIC_LINKING_ONLY=1",
         "ROCKSDB_BACKTRACE=1",
@@ -83,6 +82,7 @@
           "OS == 'linux'",
           {
             "defines": [
+              "SNAPPY=1",
               "OS_LINUX=1",
               "ROCKSDB_FALLOCATE_PRESENT=1",
               "ROCKSDB_MALLOC_USABLE_SIZE=1",

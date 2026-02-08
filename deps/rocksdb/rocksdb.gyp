@@ -94,8 +94,8 @@
               "USE_COROUTINES=1",
               "HAVE_UINT128_EXTENSION=1",
               "HAVE_ALIGNED_NEW=1",
-              # "ROCKSDB_JEMALLOC=1",
-              # "JEMALLOC_NO_DEMANGLE=1"
+              "ROCKSDB_JEMALLOC=1",
+              "JEMALLOC_NO_DEMANGLE=1"
               # "HAVE_FULLFSYNC=1",
               # "NUMA=1",
             ],
@@ -109,8 +109,8 @@
                 "/usr/lib/x86_64-linux-gnu/libiberty.a",
                 "/usr/lib/x86_64-linux-gnu/libunwind.a",
                 "/usr/lib/x86_64-linux-gnu/libgflags.a",
-                "/usr/local/lib/libsnappy.a"
-                # "/usr/lib/x86_64-linux-gnu/libjemalloc.a"
+                "/usr/local/lib/libsnappy.a",
+                "/usr/local/lib/libjemalloc.a"
               ],
             },
             "include_dirs": [

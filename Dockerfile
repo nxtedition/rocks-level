@@ -54,12 +54,6 @@ RUN cd /opt && git clone https://github.com/gflags/gflags.git && cd gflags && \
   make && \
   cp lib/libgflags.a /usr/lib/x86_64-linux-gnu/
 
-RUN cd /opt && git clone https://github.com/jemalloc/jemalloc.git && cd jemalloc && \
-  CFLAGS="-fPIC" ./autogen.sh && \
-  make && \
-  cp lib/libjemalloc.a /usr/lib/x86_64-linux-gnu/ && \
-  cp -rv include/jemalloc /usr/include/
-
 RUN cd /opt && git clone --depth 1 --branch 1.2.1 https://github.com/google/snappy.git && cd snappy && \
   git submodule update --init && \
   sed -i 's/-fno-rtti//g' CMakeLists.txt && \
@@ -79,7 +73,7 @@ RUN cd /opt && git clone --depth 1 --branch 20240722.0 https://github.com/abseil
   make -j"$(nproc)" && \
   make install && ldconfig
 
-RUN cd /opt && git clone --depth 1 --branch 2024-07-02 https://github.com/google/re2.git && cd re2 && \
+RUN cd /opt && git clone --depth 1 --branch 2025-11-05 https://github.com/google/re2.git && cd re2 && \
   cmake . -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
     -DCMAKE_CXX_FLAGS="-march=znver3 -mtune=znver3 -O3" \
     -DBUILD_SHARED_LIBS=OFF \

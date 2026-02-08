@@ -64,13 +64,6 @@ RUN cd /opt && git clone --depth 1 --branch 1.2.1 https://github.com/google/snap
   make -j"$(nproc)" && \
   make install && ldconfig
 
-# Build jemalloc
-RUN cd /tmp && wget https://github.com/jemalloc/jemalloc/releases/download/5.3.0/jemalloc-5.3.0.tar.bz2 && \
-  tar xjf jemalloc-5.3.0.tar.bz2 && cd jemalloc-5.3.0 && \
-  CFLAGS="-march=znver3 -mtune=znver3 -O3 -fPIC" CXXFLAGS="-march=znver3 -mtune=znver3 -O3 -fPIC" \
-  ./configure --disable-shared --enable-static --disable-tls --disable-initial-exec-tls && \
-  make -j"$(nproc)" && make install && ldconfig
-
 RUN cd /opt && git clone --depth 1 --branch 20240722.0 https://github.com/abseil/abseil-cpp.git && cd abseil-cpp && \
   mkdir build && cd build && \
   cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=ON \

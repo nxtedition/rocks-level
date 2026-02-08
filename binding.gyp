@@ -32,7 +32,6 @@
                             "-flto",
                             "-fuse-linker-plugin",
                             "-Wl,--whole-archive,/usr/local/lib/libsnappy.a,--no-whole-archive",
-                            "-Wl,--whole-archive,/usr/local/lib/libjemalloc.a,--no-whole-archive",
                         ],
                     },
                 ],

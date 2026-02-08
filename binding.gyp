@@ -9,39 +9,44 @@
                     "OS == 'linux'",
                     {
                         "direct_dependent_settings": {
-                          "libraries": [
-                          ],
+                            "libraries": [],
                         },
                         "include_dirs": [
-                          "/usr/lib/x86_64-linux-gnu/include",
-                          "/usr/lib/include",
+                            "/usr/lib/x86_64-linux-gnu/include",
+                            "/usr/lib/include",
                         ],
                         "libraries": [
-                          "/usr/local/lib/libre2.a",
-                          "<!@(ls /usr/local/lib/libabsl_*.a)"
+                            "/usr/local/lib/libre2.a",
+                            "<!@(ls /usr/local/lib/libabsl_*.a)",
                         ],
                         "cflags": ["-march=znver3", "-mtune=znver3"],
-                        "cflags_cc": ["-flto", "-std=c++23", "-march=znver3", "-mtune=znver3"],
+                        "cflags_cc": [
+                            "-flto",
+                            "-std=c++23",
+                            "-march=znver3",
+                            "-mtune=znver3",
+                        ],
                         "cflags!": ["-fno-exceptions"],
                         "cflags_cc!": ["-fno-exceptions"],
-                        "ldflags": ["-flto", "-fuse-linker-plugin", "-Wl,--whole-archive,/usr/local/lib/libsnappy.a,--no-whole-archive", "-Wl,--whole-archive,/usr/local/lib/libjemalloc.a,--no-whole-archive"],
+                        "ldflags": [
+                            "-flto",
+                            "-fuse-linker-plugin",
+                            "-Wl,--whole-archive,/usr/local/lib/libsnappy.a,--no-whole-archive",
+                            "-Wl,--whole-archive,/usr/local/lib/libjemalloc.a,--no-whole-archive",
+                        ],
                     },
                 ],
                 [
                     "OS == 'mac'",
                     {
                         "direct_dependent_settings": {
-                          "libraries": [
-                          ],
+                            "libraries": [],
                         },
-                        "include_dirs": [
-                          "/opt/homebrew/include",
-                          "/usr/local/include"
-                        ],
+                        "include_dirs": ["/opt/homebrew/include", "/usr/local/include"],
                         "libraries": [
-                          "-L/opt/homebrew/lib",
-                          "-L/usr/local/lib",
-                          "-lre2"
+                            "-L/opt/homebrew/lib",
+                            "-L/usr/local/lib",
+                            "-lre2",
                         ],
                         "xcode_settings": {
                             "WARNING_CFLAGS": [
@@ -60,22 +65,18 @@
                             ],
                             "OTHER_LDFLAGS": [
                                 "-L/opt/homebrew/lib",
-                                "-L/usr/local/lib"
+                                "-L/usr/local/lib",
                             ],
                             "GCC_ENABLE_CPP_RTTI": "YES",
                             "GCC_ENABLE_CPP_EXCEPTIONS": "YES",
                             "MACOSX_DEPLOYMENT_TARGET": "13.4.0",
-                        }
+                        },
                     },
                 ],
             ],
             "dependencies": ["<(module_root_dir)/deps/rocksdb/rocksdb.gyp:rocksdb"],
-            "include_dirs": [
-              "<!(node -e \"require('napi-macros')\")"
-            ],
-            "sources": [
-              "binding.cc"
-          ],
+            "include_dirs": ["<!(node -e \"require('napi-macros')\")"],
+            "sources": ["binding.cc"],
         }
     ],
 }

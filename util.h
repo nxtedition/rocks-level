@@ -497,12 +497,38 @@ class Reference {
 
 
 class HandleScope {
+  HandleScope(napi_env env, napi_handle_scope scope) : env_(env), scope_(scope) {}
+
  public:
-  HandleScope(napi_env env) : env_(env) { status_ = napi_open_handle_scope(env_, &scope_); }
+  static napi_status Create(napi_env env, HandleScope& handleScope) {
+    napi_handle_scope scope;
+    NAPI_STATUS_RETURN(napi_open_handle_scope(env, &scope));
+    handleScope = HandleScope(env, scope);
+    return napi_ok;
+  }
+
+  HandleScope() = default;
+
   ~HandleScope() {
-    if (status_ == napi_ok && scope_) {
+    if (scope_) {
       napi_close_handle_scope(env_, scope_);
     }
+  }
+  HandleScope(HandleScope&& other) noexcept : env_(other.env_), scope_(other.scope_) {
+    other.env_ = nullptr;
+    other.scope_ = nullptr;
+  }
+  HandleScope& operator=(HandleScope&& other) noexcept {
+    if (this != &other) {
+      if (scope_) {
+        napi_close_handle_scope(env_, scope_);
+      }
+      env_ = other.env_;
+      scope_ = other.scope_;
+      other.env_ = nullptr;
+      other.scope_ = nullptr;
+    }
+    return *this;
   }
   HandleScope(const HandleScope&) = delete;
   HandleScope& operator=(const HandleScope&) = delete;
@@ -510,7 +536,6 @@ class HandleScope {
  private:
   napi_env env_ = nullptr;
   napi_handle_scope scope_ = nullptr;
-  napi_status status_ = napi_generic_failure;
 };
 
 template <typename State, typename T1, typename T2>
@@ -534,7 +559,8 @@ napi_status runAsync(napi_value asyncResourceName, napi_env env, napi_value call
         return;  // env is tearing down, just clean up
       }
 
-      HandleScope scope(env);
+      HandleScope scope;
+      NAPI_STATUS_THROWS_VOID(HandleScope::Create(env, scope));
 
       napi_value callback;
       NAPI_STATUS_THROWS_VOID(napi_get_reference_value(env, worker->ref, &callback));

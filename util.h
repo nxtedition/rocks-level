@@ -452,6 +452,50 @@ napi_status Convert(napi_env env,
   }
 }
 
+class Reference {
+  Reference(napi_env env, napi_ref ref) : env_(env), ref_(ref) {}
+
+ public:
+  static napi_status Create(napi_env env, napi_value value, Reference& handle) {
+    napi_ref ref;
+    NAPI_STATUS_RETURN(napi_create_reference(env, value, 1, &ref));
+    handle = Reference(env, ref);
+    return napi_ok;
+  }
+
+  Reference() = default;
+
+  ~Reference() {
+    if (ref_) {
+      napi_delete_reference(env_, ref_);
+      ref_ = nullptr;
+    }
+  }
+  Reference(Reference&& other) noexcept : env_(other.env_), ref_(other.ref_) {
+    other.env_ = nullptr;
+    other.ref_ = nullptr;
+  }
+  Reference& operator=(Reference&& other) noexcept {
+    if (this != &other) {
+      if (ref_) {
+        napi_delete_reference(env_, ref_);
+      }
+      env_ = other.env_;
+      ref_ = other.ref_;
+      other.env_ = nullptr;
+      other.ref_ = nullptr;
+    }
+    return *this;
+  }
+  Reference(const Reference&) = delete;
+  Reference& operator=(const Reference&) = delete;
+
+ private:
+  napi_env env_ = nullptr;
+  napi_ref ref_ = nullptr;
+};
+
+
 class HandleScope {
  public:
   HandleScope(napi_env env) : env_(env) { status_ = napi_open_handle_scope(env_, &scope_); }

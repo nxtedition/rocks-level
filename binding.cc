@@ -1960,7 +1960,6 @@ NAPI_METHOD(batch_write) {
 
   rocksdb::WriteBatch* batch;
   NAPI_STATUS_THROWS(napi_get_value_external(env, argv[1], reinterpret_cast<void**>(&batch)));
-
   bool sync = false;
   NAPI_STATUS_THROWS(GetProperty(env, argv[2], "sync", sync));
 

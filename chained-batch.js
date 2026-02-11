@@ -1,12 +1,17 @@
 'use strict'
 
+const { fromCallback } = require('catering')
 const { AbstractChainedBatch } = require('abstract-level')
-const binding = require('./binding')
 const ModuleError = require('module-error')
 const assert = require('node:assert')
 
+const binding = require('./binding')
+
+const kPromise = Symbol('promise')
 const kBatchContext = Symbol('batchContext')
 const kDbContext = Symbol('dbContext')
+const kBusy = Symbol('busy')
+
 const EMPTY = {}
 
 class ChainedBatch extends AbstractChainedBatch {
@@ -15,10 +20,18 @@ class ChainedBatch extends AbstractChainedBatch {
 
     this[kDbContext] = context
     this[kBatchContext] = binding.batch_init()
+    this[kBusy] = false
+  }
+
+  get length () {
+    assert(this[kBatchContext])
+
+    return binding.batch_count(this[kBatchContext])
   }
 
   _put (key, value, options) {
     assert(this[kBatchContext])
+    assert(!this[kBusy])
 
     if (key === null || key === undefined) {
       throw new ModuleError('Key cannot be null or undefined', {
@@ -40,6 +53,7 @@ class ChainedBatch extends AbstractChainedBatch {
 
   _putLogData (blob) {
     assert(this[kBatchContext])
+    assert(!this[kBusy])
 
     if (blob === null || blob === undefined) {
       throw new ModuleError('Blob cannot be null or undefined', {
@@ -54,6 +68,7 @@ class ChainedBatch extends AbstractChainedBatch {
 
   _del (key, options) {
     assert(this[kBatchContext])
+    assert(!this[kBusy])
 
     if (key === null || key === undefined) {
       throw new ModuleError('Key cannot be null or undefined', {
@@ -68,24 +83,43 @@ class ChainedBatch extends AbstractChainedBatch {
 
   _clear () {
     assert(this[kBatchContext])
+    assert(!this[kBusy])
 
     binding.batch_clear(this[kBatchContext])
   }
 
   _write (options, callback) {
     assert(this[kBatchContext])
+    assert(!this[kBusy])
 
-    binding.batch_write(this[kDbContext], this[kBatchContext], options ?? EMPTY, callback)
+    return this._writeAsync(options, callback)
   }
 
   _writeSync (options) {
     assert(this[kBatchContext])
+    assert(!this[kBusy])
 
     binding.batch_write_sync(this[kDbContext], this[kBatchContext], options ?? EMPTY)
   }
 
+  _writeAsync (options, callback) {
+    assert(this[kBatchContext])
+    assert(!this[kBusy])
+
+    callback = fromCallback(callback, kPromise)
+
+    this[kBusy] = true
+    binding.batch_write(this[kDbContext], this[kBatchContext], options ?? EMPTY, (err) => {
+      this[kBusy] = false
+      callback(err)
+    })
+
+    return callback[kPromise]
+  }
+
   _close (callback) {
     assert(this[kBatchContext])
+    assert(!this[kBusy])
 
     try {
       this._closeSync()
@@ -96,20 +130,16 @@ class ChainedBatch extends AbstractChainedBatch {
   }
 
   _closeSync () {
-    if (this[kBatchContext]) {
-      binding.batch_clear(this[kBatchContext])
-      this[kBatchContext] = null
-    }
-  }
-
-  get length () {
     assert(this[kBatchContext])
+    assert(!this[kBusy])
 
-    return binding.batch_count(this[kBatchContext])
+    binding.batch_clear(this[kBatchContext])
+    this[kBatchContext] = null
   }
 
   _merge (key, value, options) {
     assert(this[kBatchContext])
+    assert(!this[kBusy])
 
     if (key === null || key === undefined) {
       throw new ModuleError('Key cannot be null or undefined', {

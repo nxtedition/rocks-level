@@ -5,6 +5,7 @@ const { AbstractLevel } = require('abstract-level')
 const ModuleError = require('module-error')
 const binding = require('./binding')
 const { ChainedBatch } = require('./chained-batch')
+const { RocksCache } = require('./cache')
 const { Iterator } = require('./iterator')
 const fs = require('node:fs')
 const assert = require('node:assert')
@@ -20,7 +21,7 @@ const { kRef, kUnref } = require('./util')
 const kEmpty = {}
 
 class RocksLevel extends AbstractLevel {
-  constructor (locationOrHandle, options) {
+  constructor (locationOrHandle, { ...options } = {}) {
     super({
       encodings: {
         buffer: true,
@@ -339,3 +340,4 @@ class RocksLevel extends AbstractLevel {
 }
 
 exports.RocksLevel = RocksLevel
+exports.RocksCache = RocksCache

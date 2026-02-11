@@ -28,7 +28,8 @@
       "Bash(git rm:*)",
       "WebFetch(domain:raw.githubusercontent.com)",
       "Bash(git log:*)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(npm run rebuild:*)"
     ]
   }
 }

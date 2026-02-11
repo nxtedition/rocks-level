@@ -812,7 +812,7 @@ static void FinalizeDatabase(napi_env env, void* data, void* hint) {
 }
 
 NAPI_METHOD(db_init) {
-  NAPI_ARGV(1);
+  NAPI_ARGV(2);
 
   Database* database = nullptr;
 
@@ -1024,7 +1024,35 @@ napi_status InitOptions(napi_env env, T& columnOptions, const U& options) {
   tableOptions.decouple_partitioned_filters = true;
 
   std::shared_ptr<rocksdb::Cache> cache;
+
   {
+    napi_value cacheValue;
+    NAPI_STATUS_RETURN(napi_get_named_property(env, options, "cache", &cacheValue));
+
+    napi_valuetype cacheType;
+    NAPI_STATUS_RETURN(napi_typeof(env, cacheValue, &cacheType));
+
+    if (cacheType == napi_object) {
+      napi_value handleValue;
+      NAPI_STATUS_RETURN(napi_get_named_property(env, cacheValue, "handle", &handleValue));
+
+      bool lossless;
+      int64_t ptr;
+      NAPI_STATUS_RETURN(napi_get_value_bigint_int64(env, handleValue, &ptr, &lossless));
+
+      cache = *reinterpret_cast<std::shared_ptr<rocksdb::Cache>*>(ptr);
+    } else if (cacheType == napi_bigint) {
+      bool lossless;
+      int64_t ptr;
+      NAPI_STATUS_RETURN(napi_get_value_bigint_int64(env, cacheValue, &ptr, &lossless));
+
+      cache = *reinterpret_cast<std::shared_ptr<rocksdb::Cache>*>(ptr);
+    } else if (cacheType != napi_undefined && cacheType != napi_null) {
+      return napi_invalid_arg;
+    }
+  }
+
+  if (!cache) {
     uint32_t cacheSize = 8 << 20;
     double compressedRatio = 0.0;
 
@@ -1032,7 +1060,7 @@ napi_status InitOptions(napi_env env, T& columnOptions, const U& options) {
     NAPI_STATUS_RETURN(GetProperty(env, options, "cacheCompressedRatio", compressedRatio));
 
     if (cacheSize == 0) {
-      cache = nullptr;
+      // Do nothing...
     } else if (compressedRatio > 0.0) {
       rocksdb::TieredCacheOptions options;
       options.cache_type = rocksdb::PrimaryCacheType::kCacheTypeHCC;
@@ -2248,6 +2276,32 @@ NAPI_METHOD(db_compact_range) {
   return 0;
 }
 
+NAPI_METHOD(cache_init) {
+  NAPI_ARGV(1);
+
+  size_t capacity = 32 * 1024 * 1024;  // 32 MiB
+  NAPI_STATUS_THROWS(GetProperty(env, argv[0], "capacity", capacity));
+
+  auto cache = new std::shared_ptr<rocksdb::Cache>(rocksdb::HyperClockCacheOptions(capacity, 0).MakeSharedCache());
+
+  napi_value result;
+  NAPI_STATUS_THROWS(napi_create_external(env, cache, Finalize<std::shared_ptr<rocksdb::Cache>>, cache, &result));
+
+  return result;
+}
+
+NAPI_METHOD(cache_get_handle) {
+  NAPI_ARGV(1);
+
+  std::shared_ptr<rocksdb::Cache>* cache;
+  NAPI_STATUS_THROWS(napi_get_value_external(env, argv[0], reinterpret_cast<void**>(&cache)));
+
+  napi_value result;
+  NAPI_STATUS_THROWS(napi_create_bigint_int64(env, reinterpret_cast<intptr_t>(cache), &result));
+
+  return result;
+}
+
 NAPI_INIT() {
   NAPI_EXPORT_FUNCTION(db_init);
   NAPI_EXPORT_FUNCTION(db_open);
@@ -2286,4 +2340,7 @@ NAPI_INIT() {
   NAPI_EXPORT_FUNCTION(batch_merge);
   NAPI_EXPORT_FUNCTION(batch_count);
   NAPI_EXPORT_FUNCTION(batch_iterate);
+
+  NAPI_EXPORT_FUNCTION(cache_init);
+  NAPI_EXPORT_FUNCTION(cache_get_handle);
 }

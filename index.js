@@ -41,6 +41,10 @@ class RocksLevel extends AbstractLevel {
     this[kPendingClose] = null
   }
 
+  [Symbol.asyncDispose]() {
+    return this.close()
+  }
+
   static async open (...args) {
     const db = new this(...args)
     await db.open()

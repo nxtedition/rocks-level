@@ -23,6 +23,10 @@ class ChainedBatch extends AbstractChainedBatch {
     this[kBusy] = false
   }
 
+  [Symbol.asyncDispose]() {
+    return this.close()
+  }
+
   get length () {
     assert(this[kBatchContext])
 

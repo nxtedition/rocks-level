@@ -32,6 +32,10 @@ class Iterator extends AbstractIterator {
     this[kBusy] = false
   }
 
+  [Symbol.asyncDispose]() {
+    return this.close()
+  }
+
   _seek (target) {
     this._seekSync(target)
   }

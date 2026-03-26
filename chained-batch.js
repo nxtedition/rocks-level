@@ -113,10 +113,15 @@ class ChainedBatch extends AbstractChainedBatch {
     callback = fromCallback(callback, kPromise)
 
     this[kBusy] = true
-    binding.batch_write(this[kDbContext], this[kBatchContext], options ?? EMPTY, (err) => {
+    try {
+      binding.batch_write(this[kDbContext], this[kBatchContext], options ?? EMPTY, (err) => {
+        this[kBusy] = false
+        callback(err)
+      })
+    } catch (err) {
       this[kBusy] = false
-      callback(err)
-    })
+      process.nextTick(callback, err)
+    }
 
     return callback[kPromise]
   }

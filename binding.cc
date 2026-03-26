@@ -1426,10 +1426,6 @@ NAPI_METHOD(db_open) {
   return 0;
 }
 
-napi_value noop_callback(napi_env env, napi_callback_info info) {
-  return 0;
-}
-
 NAPI_METHOD(db_close) {
   NAPI_ARGV(2);
 

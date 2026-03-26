@@ -174,6 +174,7 @@ class RocksLevel extends AbstractLevel {
         }
       })
     } catch (err) {
+      this[kUnref]()
       process.nextTick(callback, err)
     }
 

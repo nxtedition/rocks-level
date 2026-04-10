@@ -94,7 +94,7 @@ class RocksLevel extends AbstractLevel {
 
     if (options.createIfMissing) {
       fs.mkdir(this.location, { recursive: true }, (err) => {
-        if (err) {
+        if (err && err.code !== 'EEXIST') {
           callback(err)
         } else {
           doOpen()

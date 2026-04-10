@@ -16,7 +16,7 @@ const kFirst = Symbol('first')
 const kPosition = Symbol('position')
 const kBusy = Symbol('busy')
 
-const kEmpty = []
+const kEmpty = Object.freeze([])
 
 class Iterator extends AbstractIterator {
   constructor (db, context, options) {
@@ -136,6 +136,8 @@ class Iterator extends AbstractIterator {
     this[kPosition] = 0
 
     try {
+      this[kDB][kRef]()
+      this[kBusy] = true
       binding.iterator_seek(this[kContext], target, (err) => {
         this[kBusy] = false
         this[kDB][kUnref]()
@@ -146,9 +148,9 @@ class Iterator extends AbstractIterator {
           callback(null)
         }
       })
-      this[kDB][kRef]()
-      this[kBusy] = true
     } catch (err) {
+      this[kBusy] = false
+      this[kDB][kUnref]()
       process.nextTick(callback, err)
     }
 
@@ -179,6 +181,8 @@ class Iterator extends AbstractIterator {
       if (this[kFinished]) {
         process.nextTick(callback, null, { rows: [], finished: true })
       } else {
+        this[kDB][kRef]()
+        this[kBusy] = true
         binding.iterator_nextv(this[kContext], size, options, (err, result) => {
           this[kBusy] = false
           this[kDB][kUnref]()
@@ -190,10 +194,10 @@ class Iterator extends AbstractIterator {
             callback(null, result)
           }
         })
-        this[kBusy] = true
-        this[kDB][kRef]()
       }
     } catch (err) {
+      this[kBusy] = false
+      this[kDB][kUnref]()
       process.nextTick(callback, err)
     }
 

@@ -18,7 +18,7 @@ const kPendingClose = Symbol('pendingClose')
 
 const { kRef, kUnref } = require('./util')
 
-const kEmpty = {}
+const kEmpty = Object.freeze({})
 
 class RocksLevel extends AbstractLevel {
   constructor (locationOrHandle, { ...options } = {}) {
@@ -161,6 +161,10 @@ class RocksLevel extends AbstractLevel {
   }
 
   _getManyAsync (keys, options, callback) {
+    if (keys.some(key => typeof key === 'string')) {
+      keys = keys.map(key => typeof key === 'string' ? Buffer.from(key) : key)
+    }
+
     callback = fromCallback(callback, kPromise)
 
     try {

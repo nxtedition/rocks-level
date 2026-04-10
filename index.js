@@ -41,7 +41,7 @@ class RocksLevel extends AbstractLevel {
     this[kPendingClose] = null
   }
 
-  [Symbol.asyncDispose]() {
+  [Symbol.asyncDispose] () {
     return this.close()
   }
 

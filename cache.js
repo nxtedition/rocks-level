@@ -5,7 +5,7 @@ const binding = require('./binding')
 const kCacheContext = Symbol('cacheContext')
 
 class RocksCache {
-  constructor(optionsOrHandle = {}) {
+  constructor (optionsOrHandle = {}) {
     this[kCacheContext] = binding.cache_init(optionsOrHandle)
   }
 

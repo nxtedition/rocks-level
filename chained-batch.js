@@ -23,7 +23,7 @@ class ChainedBatch extends AbstractChainedBatch {
     this[kBusy] = false
   }
 
-  [Symbol.asyncDispose]() {
+  [Symbol.asyncDispose] () {
     return this.close()
   }
 

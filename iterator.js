@@ -32,7 +32,7 @@ class Iterator extends AbstractIterator {
     this[kBusy] = false
   }
 
-  [Symbol.asyncDispose]() {
+  [Symbol.asyncDispose] () {
     return this.close()
   }
 

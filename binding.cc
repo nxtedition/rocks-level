@@ -1907,7 +1907,7 @@ NAPI_METHOD(batch_put) {
 }
 
 NAPI_METHOD(batch_put_log_data) {
-  NAPI_ARGV(3);
+  NAPI_ARGV(2);
 
   rocksdb::WriteBatch* batch;
   NAPI_STATUS_THROWS(napi_get_value_external(env, argv[0], reinterpret_cast<void**>(&batch)));

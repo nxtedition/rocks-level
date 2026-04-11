@@ -1203,7 +1203,7 @@ napi_status InitOptions(napi_env env, T& columnOptions, const U& options) {
       GetProperty(env, options, "cacheIndexAndFilterBlocks", tableOptions.cache_index_and_filter_blocks));
   NAPI_STATUS_RETURN(GetProperty(env, options, "cacheIndexAndFilterBlocksWithHighPriority",
                                  tableOptions.cache_index_and_filter_blocks_with_high_priority));
-  NAPI_STATUS_RETURN(GetProperty(env, options, "decouplePartitionedFilters", tableOptions.block_restart_interval));
+  NAPI_STATUS_RETURN(GetProperty(env, options, "decouplePartitionedFilters", tableOptions.decouple_partitioned_filters));
   NAPI_STATUS_RETURN(GetProperty(env, options, "optimizeFiltersForMemory", tableOptions.optimize_filters_for_memory));
   NAPI_STATUS_RETURN(GetProperty(env, options, "maxAutoReadaheadSize", tableOptions.max_auto_readahead_size));
   NAPI_STATUS_RETURN(GetProperty(env, options, "initialAutoReadaheadSize", tableOptions.initial_auto_readahead_size));
@@ -1258,11 +1258,11 @@ NAPI_METHOD(db_open) {
 
     uint32_t walTTL = 0;
     NAPI_STATUS_THROWS(GetProperty(env, options, "walTTL", walTTL));
-    dbOptions.WAL_ttl_seconds = walTTL / 1e3;
+    dbOptions.WAL_ttl_seconds = static_cast<uint32_t>(std::ceil(walTTL / 1e3));
 
     uint32_t walSizeLimit = 0;
     NAPI_STATUS_THROWS(GetProperty(env, options, "walSizeLimit", walSizeLimit));
-    dbOptions.WAL_size_limit_MB = walSizeLimit / 1e6;
+    dbOptions.WAL_size_limit_MB = static_cast<uint32_t>(std::ceil(walSizeLimit / 1e6));
 
     NAPI_STATUS_THROWS(GetProperty(env, options, "maxTotalWalSize", dbOptions.max_total_wal_size));
 

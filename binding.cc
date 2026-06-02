@@ -1403,13 +1403,10 @@ NAPI_METHOD(db_open) {
         [=](auto& handles) {
           assert(!database->db);
 
-          rocksdb::DB* db = nullptr;
-
-          const auto status = descriptors.empty()
-                                  ? rocksdb::DB::Open(dbOptions, database->location, &db)
-                                  : rocksdb::DB::Open(dbOptions, database->location, descriptors, &handles, &db);
-
-          database->db.reset(db);
+          const auto status =
+              descriptors.empty()
+                  ? rocksdb::DB::Open(dbOptions, database->location, &database->db)
+                  : rocksdb::DB::Open(dbOptions, database->location, descriptors, &handles, &database->db);
 
           return status;
         },

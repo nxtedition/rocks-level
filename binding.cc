@@ -20,6 +20,7 @@
 
 #include <re2/re2.h>
 
+#include <cmath>
 #include <iostream>
 #include <memory>
 #include <optional>

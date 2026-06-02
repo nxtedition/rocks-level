@@ -15,6 +15,7 @@ const kFinished = Symbol('finished')
 const kFirst = Symbol('first')
 const kPosition = Symbol('position')
 const kBusy = Symbol('busy')
+const kPendingClose = Symbol('pendingClose')
 
 const kEmpty = Object.freeze([])
 
@@ -30,6 +31,7 @@ class Iterator extends AbstractIterator {
     this[kPosition] = 0
     this[kDB] = db
     this[kBusy] = false
+    this[kPendingClose] = null
   }
 
   [Symbol.asyncDispose] () {
@@ -41,7 +43,23 @@ class Iterator extends AbstractIterator {
   }
 
   _close (callback) {
-    return this._closeAsync(callback)
+    // If an async nextv/seek is in flight on a worker thread, defer the close
+    // until it completes so we never free the native rocksdb iterator while the
+    // worker is still reading it. The pending close is flushed from the async
+    // op's completion callback (see _flushPendingClose).
+    if (this[kBusy]) {
+      this[kPendingClose] = callback
+    } else {
+      this._closeAsync(callback)
+    }
+  }
+
+  _flushPendingClose () {
+    if (!this[kBusy] && this[kPendingClose]) {
+      const callback = this[kPendingClose]
+      this[kPendingClose] = null
+      this._closeAsync(callback)
+    }
   }
 
   _end (callback) {
@@ -147,6 +165,8 @@ class Iterator extends AbstractIterator {
         } else {
           callback(null)
         }
+
+        this._flushPendingClose()
       })
     } catch (err) {
       this[kBusy] = false
@@ -193,6 +213,8 @@ class Iterator extends AbstractIterator {
             this[kFinished] = result.finished
             callback(null, result)
           }
+
+          this._flushPendingClose()
         })
       }
     } catch (err) {

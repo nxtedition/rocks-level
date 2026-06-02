@@ -551,10 +551,10 @@ class Iterator final : public BaseIterator {
     rocksdb::ColumnFamilyHandle* column = database->db->DefaultColumnFamily();
     NAPI_STATUS_THROWS(GetProperty(env, options, "column", column));
 
-    Encoding keyEncoding;
+    Encoding keyEncoding = Encoding::Buffer;
     NAPI_STATUS_THROWS(GetProperty(env, options, "keyEncoding", keyEncoding));
 
-    Encoding valueEncoding;
+    Encoding valueEncoding = Encoding::Buffer;
     NAPI_STATUS_THROWS(GetProperty(env, options, "valueEncoding", valueEncoding));
 
     rocksdb::ReadOptions readOptions;
@@ -601,6 +601,7 @@ class Iterator final : public BaseIterator {
       std::vector<rocksdb::PinnableSlice> keys;
       std::vector<rocksdb::PinnableSlice> values;
       size_t count = 0;
+      size_t bytes = 0;
       bool finished = false;
       bool limited = false;
     };
@@ -616,14 +617,16 @@ class Iterator final : public BaseIterator {
 
           const auto deadline = timeout ? database_->db->GetEnv()->NowMicros() + timeout * 1000 : 0;
 
-          size_t bytesRead = 0;
           while (true) {
-            if (state.count >= count || bytesRead > highWaterMarkBytes_) {
+            if (state.count >= count || state.bytes > highWaterMarkBytes_) {
+              // Batch cap (size/bytes) reached: more data may exist, so this is
+              // "limited", not "finished".
               state.limited = true;
               break;
             }
 
             if (deadline > 0 && database_->db->GetEnv()->NowMicros() > deadline) {
+              // Timed out: neither finished nor limited; the caller may retry.
               break;
             }
 
@@ -635,12 +638,19 @@ class Iterator final : public BaseIterator {
 
             ROCKS_STATUS_RETURN(Status());
 
-            if (!Valid() || !Increment()) {
+            if (!Valid()) {
+              // Iterator naturally exhausted.
               state.finished = true;
               break;
             }
 
-            bytesRead += CurrentKey().size() + CurrentValue().size();
+            if (!Increment()) {
+              // Hit the user's `limit` option: terminal, and flag that it was a
+              // limit rather than natural exhaustion.
+              state.finished = true;
+              state.limited = true;
+              break;
+            }
 
             if (keyFilter_ && !re2::RE2::PartialMatch(CurrentKey().ToStringView(), *keyFilter_)) {
               continue;
@@ -653,18 +663,22 @@ class Iterator final : public BaseIterator {
             if (keys_ && values_) {
               rocksdb::PinnableSlice k;
               k.PinSelf(CurrentKey());
+              state.bytes += k.size();
               state.keys.push_back(std::move(k));
 
               rocksdb::PinnableSlice v;
               v.PinSelf(CurrentValue());
+              state.bytes += v.size();
               state.values.push_back(std::move(v));
             } else if (keys_) {
               rocksdb::PinnableSlice k;
               k.PinSelf(CurrentKey());
+              state.bytes += k.size();
               state.keys.push_back(std::move(k));
             } else if (values_) {
               rocksdb::PinnableSlice v;
               v.PinSelf(CurrentValue());
+              state.bytes += v.size();
               state.values.push_back(std::move(v));
             } else {
               assert(false);
@@ -729,14 +743,18 @@ class Iterator final : public BaseIterator {
     const auto deadline = timeout ? database_->db->GetEnv()->NowMicros() + timeout * 1000 : 0;
 
     size_t idx = 0;
-    size_t bytesRead = 0;
+    size_t bytes = 0;
     while (true) {
-      if (idx >= count * 2 || bytesRead > highWaterMarkBytes_) {
+      if (idx >= static_cast<size_t>(count) * 2 || bytes > highWaterMarkBytes_) {
+        // Batch cap (size/bytes) reached: more data may exist, so this is
+        // "limited", not "finished". (count is uint32_t; widen before *2 so
+        // query()'s UINT32_MAX count doesn't overflow to a small cap.)
         NAPI_STATUS_THROWS(napi_get_boolean(env, true, &limited));
         break;
       }
 
       if (deadline > 0 && database_->db->GetEnv()->NowMicros() > deadline) {
+        // Timed out: neither finished nor limited; the caller may retry.
         break;
       }
 
@@ -748,12 +766,19 @@ class Iterator final : public BaseIterator {
 
       ROCKS_STATUS_THROWS_NAPI(Status());
 
-      if (!Valid() || !Increment()) {
+      if (!Valid()) {
+        // Iterator naturally exhausted.
         NAPI_STATUS_THROWS(napi_get_boolean(env, true, &finished));
         break;
       }
 
-      bytesRead += CurrentKey().size() + CurrentValue().size();
+      if (!Increment()) {
+        // Hit the user's `limit` option: terminal, and flag that it was a limit
+        // rather than natural exhaustion.
+        NAPI_STATUS_THROWS(napi_get_boolean(env, true, &finished));
+        NAPI_STATUS_THROWS(napi_get_boolean(env, true, &limited));
+        break;
+      }
 
       if (keyFilter_ && !re2::RE2::PartialMatch(CurrentKey().ToStringView(), *keyFilter_)) {
         continue;
@@ -767,12 +792,15 @@ class Iterator final : public BaseIterator {
       napi_value val;
 
       if (keys_ && values_) {
+        bytes += CurrentKey().size() + CurrentValue().size();
         NAPI_STATUS_THROWS(Convert(env, CurrentKey(), keyEncoding_, key, unsafe_));
         NAPI_STATUS_THROWS(Convert(env, CurrentValue(), valueEncoding_, val, unsafe_));
       } else if (keys_) {
+        bytes += CurrentKey().size();
         NAPI_STATUS_THROWS(Convert(env, CurrentKey(), keyEncoding_, key, unsafe_));
         NAPI_STATUS_THROWS(napi_get_undefined(env, &val));
       } else if (values_) {
+        bytes += CurrentValue().size();
         NAPI_STATUS_THROWS(napi_get_undefined(env, &key));
         NAPI_STATUS_THROWS(Convert(env, CurrentValue(), valueEncoding_, val, unsafe_));
       } else {
@@ -1232,6 +1260,11 @@ NAPI_METHOD(db_get_identity) {
 
   Database* database;
   NAPI_STATUS_THROWS(napi_get_value_external(env, argv[0], reinterpret_cast<void**>(&database)));
+
+  if (!database->db) {
+    napi_throw_error(env, "LEVEL_DATABASE_NOT_OPEN", "Database is not open");
+    return NULL;
+  }
 
   std::string identity;
   ROCKS_STATUS_THROWS_NAPI(database->db->GetDbIdentity(identity));
@@ -1732,6 +1765,11 @@ NAPI_METHOD(db_get_latest_sequence) {
 
   Database* database;
   NAPI_STATUS_THROWS(napi_get_value_external(env, argv[0], reinterpret_cast<void**>(&database)));
+
+  if (!database->db) {
+    napi_throw_error(env, "LEVEL_DATABASE_NOT_OPEN", "Database is not open");
+    return NULL;
+  }
 
   const auto seq = database->db->GetLatestSequenceNumber();
 

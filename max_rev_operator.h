@@ -13,10 +13,14 @@ int compareRev(const rocksdb::Slice& a, const rocksdb::Slice& b) {
     return 1;
   }
 
-  std::size_t indexA = 0;
-  std::size_t indexB = 0;
-  const std::size_t endA = std::min<std::size_t>(a[indexA++], a.size());
-  const std::size_t endB = std::min<std::size_t>(b[indexB++], b.size());
+  // The first byte is a length prefix declaring the content length. Clamp it to
+  // the bytes actually available (size - 1) so malformed/truncated operands can
+  // never over-read, and cast through unsigned char so a prefix >= 0x80 is not
+  // sign-extended. endA/endB are exclusive end offsets: content is at [1, endX).
+  std::size_t indexA = 1;
+  std::size_t indexB = 1;
+  const std::size_t endA = 1 + std::min<std::size_t>(static_cast<unsigned char>(a[0]), a.size() - 1);
+  const std::size_t endB = 1 + std::min<std::size_t>(static_cast<unsigned char>(b[0]), b.size() - 1);
 
   // Compare the revision number
   auto result = 0;
@@ -52,7 +56,7 @@ int compareRev(const rocksdb::Slice& a, const rocksdb::Slice& b) {
     }
   }
 
-  return endA - endB;
+  return static_cast<int>(endA) - static_cast<int>(endB);
 }
 
 class MaxRevOperator : public rocksdb::MergeOperator {

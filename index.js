@@ -52,6 +52,12 @@ class RocksLevel extends AbstractLevel {
   }
 
   get sequence () {
+    if (this.status !== 'open') {
+      throw new ModuleError('Database is not open', {
+        code: 'LEVEL_DATABASE_NOT_OPEN'
+      })
+    }
+
     return binding.db_get_latest_sequence(this[kContext])
   }
 
@@ -112,7 +118,14 @@ class RocksLevel extends AbstractLevel {
   [kUnref] () {
     this[kRefs]--
     if (this[kRefs] === 0 && this[kPendingClose]) {
-      process.nextTick(this[kPendingClose])
+      // Perform the deferred native close now that all in-flight ops have
+      // drained. Note: kPendingClose holds the abstract-level _close callback,
+      // so we must call binding.db_close here (not just the callback) or the
+      // native DB and its directory lock would leak. nextTick avoids reentering
+      // the native layer from within the completing op's own callback.
+      const callback = this[kPendingClose]
+      this[kPendingClose] = null
+      process.nextTick(() => binding.db_close(this[kContext], callback))
     }
   }
 
@@ -243,10 +256,22 @@ class RocksLevel extends AbstractLevel {
       }
     }
 
-    binding.batch_write(this[kContext], batch, options ?? {}, (err, val) => {
+    // Hold a db ref for the duration of the write so close() defers db_close
+    // (which frees the native db on a worker thread) until it completes. The
+    // array-form batch uses a transient WriteBatch that is not an abstract-level
+    // resource, so it is not otherwise tracked across close.
+    this[kRef]()
+    try {
+      binding.batch_write(this[kContext], batch, options ?? {}, (err, val) => {
+        this[kUnref]()
+        binding.batch_clear(batch)
+        callback(err, val)
+      })
+    } catch (err) {
+      this[kUnref]()
       binding.batch_clear(batch)
-      callback(err, val)
-    })
+      process.nextTick(callback, err)
+    }
 
     return callback[kPromise]
   }
@@ -256,6 +281,12 @@ class RocksLevel extends AbstractLevel {
   }
 
   get identity () {
+    if (this.status !== 'open') {
+      throw new ModuleError('Database is not open', {
+        code: 'LEVEL_DATABASE_NOT_OPEN'
+      })
+    }
+
     return binding.db_get_identity(this[kContext])
   }
 
@@ -305,10 +336,21 @@ class RocksLevel extends AbstractLevel {
 
     const handle = binding.updates_init(this[kContext], options)
     try {
-      while (true) {
-        const value = await new Promise((resolve, reject) => {
-          binding.updates_next(handle, (err, val) => err ? reject(err) : resolve(val))
-        })
+      // Stop if the db is closed between yields, so we never call updates_next
+      // on a freed db.
+      while (this.status === 'open') {
+        // Hold a db ref for the duration of each updates_next so close() defers
+        // db_close (and the Database::Close() that resets this log iterator on a
+        // worker thread) until the in-flight read completes.
+        this[kRef]()
+        let value
+        try {
+          value = await new Promise((resolve, reject) => {
+            binding.updates_next(handle, (err, val) => err ? reject(err) : resolve(val))
+          })
+        } finally {
+          this[kUnref]()
+        }
         if (!value) {
           break
         }
@@ -328,7 +370,16 @@ class RocksLevel extends AbstractLevel {
       })
     }
 
-    binding.db_compact_range(this[kContext], options, callback)
+    this[kRef]()
+    try {
+      binding.db_compact_range(this[kContext], options, (err, val) => {
+        this[kUnref]()
+        callback(err, val)
+      })
+    } catch (err) {
+      this[kUnref]()
+      process.nextTick(callback, err)
+    }
 
     return callback[kPromise]
   }
@@ -342,7 +393,16 @@ class RocksLevel extends AbstractLevel {
       })
     }
 
-    binding.db_flush_wal(this[kContext], options?.sync ?? false, callback)
+    this[kRef]()
+    try {
+      binding.db_flush_wal(this[kContext], options?.sync ?? false, (err, val) => {
+        this[kUnref]()
+        callback(err, val)
+      })
+    } catch (err) {
+      this[kUnref]()
+      process.nextTick(callback, err)
+    }
 
     return callback[kPromise]
   }

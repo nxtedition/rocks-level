@@ -601,6 +601,7 @@ class Iterator final : public BaseIterator {
       std::vector<rocksdb::PinnableSlice> values;
       size_t count = 0;
       bool finished = false;
+      bool limited = false;
     };
 
     napi_value resourceName;
@@ -615,8 +616,9 @@ class Iterator final : public BaseIterator {
           const auto deadline = timeout ? database_->db->GetEnv()->NowMicros() + timeout * 1000 : 0;
 
           size_t bytesRead = 0;
-          while (state.count < count) {
-            if (bytesRead > highWaterMarkBytes_) {
+          while (true) {
+            if (state.count >= count || bytesRead > highWaterMarkBytes_) {
+              state.limited = true;
               break;
             }
 
@@ -675,6 +677,9 @@ class Iterator final : public BaseIterator {
           napi_value finished;
           NAPI_STATUS_RETURN(napi_get_boolean(env, state.finished, &finished));
 
+          napi_value limited;
+          NAPI_STATUS_RETURN(napi_get_boolean(env, state.limited, &limited));
+
           napi_value rows;
           NAPI_STATUS_RETURN(napi_create_array(env, &rows));
 
@@ -702,6 +707,7 @@ class Iterator final : public BaseIterator {
           NAPI_STATUS_RETURN(napi_create_object(env, result));
           NAPI_STATUS_RETURN(napi_set_named_property(env, *result, "rows", rows));
           NAPI_STATUS_RETURN(napi_set_named_property(env, *result, "finished", finished));
+          NAPI_STATUS_RETURN(napi_set_named_property(env, *result, "limited", limited));
 
           return napi_ok;
         }));
@@ -713,6 +719,9 @@ class Iterator final : public BaseIterator {
     napi_value finished;
     NAPI_STATUS_THROWS(napi_get_boolean(env, false, &finished));
 
+    napi_value limited;
+    NAPI_STATUS_THROWS(napi_get_boolean(env, false, &limited));
+
     napi_value rows;
     NAPI_STATUS_THROWS(napi_create_array(env, &rows));
 
@@ -720,8 +729,9 @@ class Iterator final : public BaseIterator {
 
     size_t idx = 0;
     size_t bytesRead = 0;
-    while (idx < count * 2) {
-      if (bytesRead > highWaterMarkBytes_) {
+    while (true) {
+      if (idx >= count * 2 || bytesRead > highWaterMarkBytes_) {
+        NAPI_STATUS_THROWS(napi_get_boolean(env, true, &limited));
         break;
       }
 
@@ -776,6 +786,7 @@ class Iterator final : public BaseIterator {
     NAPI_STATUS_THROWS(napi_create_object(env, &ret));
     NAPI_STATUS_THROWS(napi_set_named_property(env, ret, "rows", rows));
     NAPI_STATUS_THROWS(napi_set_named_property(env, ret, "finished", finished));
+    NAPI_STATUS_THROWS(napi_set_named_property(env, ret, "limited", limited));
     return ret;
   }
 };

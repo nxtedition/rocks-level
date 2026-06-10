@@ -8,6 +8,11 @@ function makeVersion (str) {
   return Buffer.concat([Buffer.from([buf.byteLength]), buf])
 }
 
+function makeVersionRaw (contentBytes) {
+  const buf = Buffer.from(contentBytes)
+  return Buffer.concat([Buffer.from([buf.byteLength]), buf])
+}
+
 function mergeFactory () {
   return testCommon.factory({
     valueEncoding: 'buffer',
@@ -82,6 +87,43 @@ test('maxRev handles zero-content and oversized-prefix operands safely', async f
   b2._merge('m', makeVersion('9-zzz'))
   await b2.write()
   t.ok(Buffer.isBuffer(await db.get('m')), 'oversized-prefix merge does not crash')
+
+  await db.close()
+  t.end()
+})
+
+// Regression for the signed-char comparison: rocksdb::Slice::operator[] returns
+// a (signed) char, so a content byte >= 0x80 used to sort as negative and order
+// opposite to the JS comparator, which reads bytes as unsigned (0..255). With
+// the same revision number, the operand whose post-'-' byte is 0x80 must beat
+// the one whose byte is 0x7f (128 > 127 unsigned); the old signed code picked
+// 0x7f instead, diverging from the in-memory ordering.
+test('maxRev orders high bytes (>= 0x80) as unsigned, matching the JS comparator', async function (t) {
+  const db = mergeFactory()
+  await db.open()
+
+  const hi = makeVersionRaw([0x33, 0x2d, 0x80]) // "3-" + 0x80
+  const lo = makeVersionRaw([0x33, 0x2d, 0x7f]) // "3-" + 0x7f
+
+  const b1 = db.batch()
+  b1._merge('fwd', lo)
+  b1._merge('fwd', hi)
+  await b1.write()
+  t.deepEqual(
+    [...(await db.get('fwd')).subarray(1)],
+    [0x33, 0x2d, 0x80],
+    'lower then higher -> 0x80 byte wins'
+  )
+
+  const b2 = db.batch()
+  b2._merge('rev', hi)
+  b2._merge('rev', lo)
+  await b2.write()
+  t.deepEqual(
+    [...(await db.get('rev')).subarray(1)],
+    [0x33, 0x2d, 0x80],
+    'higher then lower -> 0x80 byte wins'
+  )
 
   await db.close()
   t.end()

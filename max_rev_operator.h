@@ -22,12 +22,16 @@ int compareRev(const rocksdb::Slice& a, const rocksdb::Slice& b) {
   const std::size_t endA = 1 + std::min<std::size_t>(static_cast<unsigned char>(a[0]), a.size() - 1);
   const std::size_t endB = 1 + std::min<std::size_t>(static_cast<unsigned char>(b[0]), b.size() - 1);
 
-  // Compare the revision number
+  // Compare the revision number. Compare bytes as unsigned char: rocksdb::Slice
+  // operator[] returns (signed-on-most-platforms) char, so a byte >= 0x80 would
+  // otherwise sort as negative and order opposite to the JS comparator, which
+  // reads bytes as unsigned (Buffer[i] in 0..255). Keeping both sides unsigned
+  // ensures the in-memory ordering and this durable maxRev merge agree.
   auto result = 0;
   const auto end = std::min(endA, endB);
   while (indexA < end && indexB < end) {
-    const auto ac = a[indexA++];
-    const auto bc = b[indexB++];
+    const unsigned char ac = static_cast<unsigned char>(a[indexA++]);
+    const unsigned char bc = static_cast<unsigned char>(b[indexB++]);
 
     if (ac == '-') {
       if (bc == '-') {
@@ -47,10 +51,10 @@ int compareRev(const rocksdb::Slice& a, const rocksdb::Slice& b) {
     return result;
   }
 
-  // Compare the rest
+  // Compare the rest (unsigned, for the same reason as the loop above).
   while (indexA < end && indexB < end) {
-    const auto ac = a[indexA++];
-    const auto bc = b[indexB++];
+    const unsigned char ac = static_cast<unsigned char>(a[indexA++]);
+    const unsigned char bc = static_cast<unsigned char>(b[indexB++]);
     if (ac != bc) {
       return ac < bc ? -1 : 1;
     }

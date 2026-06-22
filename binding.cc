@@ -54,7 +54,7 @@ class NullLogger : public rocksdb::Logger {
 
 struct Database;
 class Iterator;
-class Updates;
+struct Updates;
 
 struct ColumnFamily {
   rocksdb::ColumnFamilyHandle* handle;
@@ -440,8 +440,12 @@ struct BaseIterator : public Closable {
     return iterator_->status();
   }
 
-  rocksdb::Status Refresh() {
+  virtual rocksdb::Status Refresh() {
     assert(iterator_);
+    // Refresh restarts iteration, so the user `limit` budget must restart too;
+    // otherwise an iterator that already yielded `limit` rows returns nothing
+    // after a refresh even though every other piece of state was reset.
+    count_ = 0;
     return iterator_->Refresh();
   }
 
@@ -537,7 +541,9 @@ class Iterator final : public BaseIterator {
     int32_t limit = -1;
     NAPI_STATUS_THROWS(GetProperty(env, options, "limit", limit));
 
-    int32_t highWaterMarkBytes = std::numeric_limits<int32_t>::max();
+    // 64-bit: the value flows into a size_t cap, so parsing as int32 would wrap
+    // any value > 2 GiB to a garbage cap. Default stays ~2 GiB (effectively no cap).
+    int64_t highWaterMarkBytes = std::numeric_limits<int32_t>::max();
     NAPI_STATUS_THROWS(GetProperty(env, options, "highWaterMarkBytes", highWaterMarkBytes));
 
     std::optional<std::string> lt;
@@ -654,20 +660,25 @@ class Iterator final : public BaseIterator {
               break;
             }
 
-            if (!Increment()) {
-              // Hit the user's `limit` option: terminal, and flag that it was a
-              // limit rather than natural exhaustion.
-              state.finished = true;
-              state.limited = true;
-              break;
-            }
-
+            // Apply the key/value filters BEFORE charging the user `limit`, so
+            // `limit` counts matched (emitted) rows, not rows merely scanned and
+            // then discarded. Otherwise a `{ limit, keyFilter }` query could
+            // exhaust its budget on non-matching rows and return fewer (or zero)
+            // matches than exist.
             if (keyFilter_ && !re2::RE2::PartialMatch(CurrentKey().ToStringView(), *keyFilter_)) {
               continue;
             }
 
             if (valueFilter_ && !re2::RE2::PartialMatch(CurrentValue().ToStringView(), *valueFilter_)) {
               continue;
+            }
+
+            if (!Increment()) {
+              // Hit the user's `limit` option: terminal, and flag that it was a
+              // limit rather than natural exhaustion.
+              state.finished = true;
+              state.limited = true;
+              break;
             }
 
             if (keys_ && values_) {
@@ -782,20 +793,22 @@ class Iterator final : public BaseIterator {
         break;
       }
 
-      if (!Increment()) {
-        // Hit the user's `limit` option: terminal, and flag that it was a limit
-        // rather than natural exhaustion.
-        NAPI_STATUS_THROWS(napi_get_boolean(env, true, &finished));
-        NAPI_STATUS_THROWS(napi_get_boolean(env, true, &limited));
-        break;
-      }
-
+      // Apply the key/value filters BEFORE charging the user `limit`, so `limit`
+      // counts matched (emitted) rows, not rows merely scanned and discarded.
       if (keyFilter_ && !re2::RE2::PartialMatch(CurrentKey().ToStringView(), *keyFilter_)) {
         continue;
       }
 
       if (valueFilter_ && !re2::RE2::PartialMatch(CurrentValue().ToStringView(), *valueFilter_)) {
         continue;
+      }
+
+      if (!Increment()) {
+        // Hit the user's `limit` option: terminal, and flag that it was a limit
+        // rather than natural exhaustion.
+        NAPI_STATUS_THROWS(napi_get_boolean(env, true, &finished));
+        NAPI_STATUS_THROWS(napi_get_boolean(env, true, &limited));
+        break;
       }
 
       napi_value key;
@@ -858,6 +871,11 @@ static void FinalizeDatabase(napi_env env, void* data, void* hint) {
       database->resourceNamesRef = nullptr;
     }
     database->Close();
+    // This external owns the Database (the bigint-handle external in db_init is
+    // created with no finalizer, so it never reaches here). Close() already
+    // released the rocksdb::DB; free the heap object itself or it leaks for the
+    // lifetime of the process.
+    delete database;
   }
 }
 
@@ -926,7 +944,15 @@ NAPI_METHOD(db_query) {
   NAPI_ARGV(2);
 
   try {
-    return Iterator::create(env, argv[0], argv[1])->nextv(env, std::numeric_limits<uint32_t>::max());
+    auto iterator = Iterator::create(env, argv[0], argv[1]);
+    // Iterator::create uses NAPI_STATUS_THROWS internally, which on a N-API
+    // failure schedules a pending JS exception and `return NULL` — i.e. an empty
+    // unique_ptr. Dereferencing it (->nextv) would be a null deref / crash, so
+    // bail out and let the pending exception surface.
+    if (!iterator) {
+      return nullptr;
+    }
+    return iterator->nextv(env, std::numeric_limits<uint32_t>::max());
   } catch (const std::exception& e) {
     napi_throw_error(env, nullptr, e.what());
     return nullptr;
@@ -1107,7 +1133,9 @@ napi_status InitOptions(napi_env env, T& columnOptions, const U& options) {
   }
 
   if (!cache) {
-    uint32_t cacheSize = 8 << 20;
+    // size_t: RocksDB cache capacity is size_t; a 32-bit type silently wraps
+    // requests >= 4 GiB (and 4 GiB exactly wraps to 0 -> cache disabled).
+    uint64_t cacheSize = 8 << 20;
     double compressedRatio = 0.0;
 
     NAPI_STATUS_RETURN(GetProperty(env, options, "cacheSize", cacheSize));
@@ -1127,7 +1155,10 @@ napi_status InitOptions(napi_env env, T& columnOptions, const U& options) {
   }
 
   {
-    uint32_t cacheSize = -1;
+    // int64: -1 means "unset" (inherit the shared cache); a 32-bit type both
+    // wraps requests >= 4 GiB and collides the unset sentinel with a real
+    // 4294967295-byte request.
+    int64_t cacheSize = -1;
     double compressedRatio = 0.0;
 
     NAPI_STATUS_RETURN(GetProperty(env, options, "cachePrepopulate", tableOptions.prepopulate_block_cache));
@@ -1155,7 +1186,9 @@ napi_status InitOptions(napi_env env, T& columnOptions, const U& options) {
   }
 
   {
-    uint32_t cacheSize = -1;
+    // int64: see the block-cache block above — -1 = unset, avoids 32-bit wrap
+    // and the unset/4-GiB sentinel collision.
+    int64_t cacheSize = -1;
     double compressedRatio = 0.0;
 
     NAPI_STATUS_RETURN(GetProperty(env, options, "cachePrepopulate", columnOptions.prepopulate_blob_cache));
@@ -1171,6 +1204,9 @@ napi_status InitOptions(napi_env env, T& columnOptions, const U& options) {
       columnOptions.blob_cache = nullptr;
     } else if (compressedRatio > 0.0) {
       rocksdb::TieredCacheOptions options;
+      // Match the block/main cache tiers: pin the primary tier to HyperClockCache
+      // explicitly rather than letting it default to LRU.
+      options.cache_type = rocksdb::PrimaryCacheType::kCacheTypeHCC;
       options.total_capacity = cacheSize;
       options.compressed_secondary_ratio = compressedRatio;
       options.comp_cache_opts.compression_type = rocksdb::CompressionType::kZSTD;
@@ -1315,13 +1351,15 @@ NAPI_METHOD(db_open) {
 
     NAPI_STATUS_THROWS(GetProperty(env, options, "walDir", dbOptions.wal_dir));
 
-    uint32_t walTTL = 0;
+    // 64-bit inputs: walTTL is in ms and walSizeLimit in bytes, so a 32-bit type
+    // wraps a >= ~4.3 GB size limit (or a ~49-day TTL) before the unit conversion.
+    uint64_t walTTL = 0;
     NAPI_STATUS_THROWS(GetProperty(env, options, "walTTL", walTTL));
-    dbOptions.WAL_ttl_seconds = static_cast<uint32_t>(std::ceil(walTTL / 1e3));
+    dbOptions.WAL_ttl_seconds = static_cast<uint64_t>(std::ceil(walTTL / 1e3));
 
-    uint32_t walSizeLimit = 0;
+    uint64_t walSizeLimit = 0;
     NAPI_STATUS_THROWS(GetProperty(env, options, "walSizeLimit", walSizeLimit));
-    dbOptions.WAL_size_limit_MB = static_cast<uint32_t>(std::ceil(walSizeLimit / 1e6));
+    dbOptions.WAL_size_limit_MB = static_cast<uint64_t>(std::ceil(walSizeLimit / 1e6));
 
     NAPI_STATUS_THROWS(GetProperty(env, options, "maxTotalWalSize", dbOptions.max_total_wal_size));
 
@@ -1638,7 +1676,7 @@ NAPI_METHOD(db_get_many) {
       [=](auto& state, napi_env env, napi_value* result) {
         NAPI_STATUS_RETURN(napi_create_array_with_length(env, count, result));
 
-        for (auto n = 0; n < count; n++) {
+        for (uint32_t n = 0; n < count; n++) {
           napi_value row;
           if (state.statuses[n].IsNotFound()) {
             NAPI_STATUS_RETURN(napi_get_undefined(env, &row));
@@ -1762,6 +1800,11 @@ NAPI_METHOD(db_get_property) {
   Database* database;
   NAPI_STATUS_THROWS(napi_get_value_external(env, argv[0], reinterpret_cast<void**>(&database)));
 
+  if (!database->db) {
+    napi_throw_error(env, "LEVEL_DATABASE_NOT_OPEN", "Database is not open");
+    return NULL;
+  }
+
   rocksdb::PinnableSlice property;
   NAPI_STATUS_THROWS(GetValue(env, argv[1], property));
 
@@ -1818,6 +1861,11 @@ NAPI_METHOD(iterator_init_sync) {
   napi_value result;
   try {
     auto iterator = Iterator::create(env, argv[0], argv[1]);
+    // create() returns an empty unique_ptr (and a pending JS exception) on a
+    // N-API failure; surface that instead of wrapping a null pointer.
+    if (!iterator) {
+      return nullptr;
+    }
 
     NAPI_STATUS_THROWS(napi_create_external(env, iterator.get(), Finalize<Iterator>, iterator.get(), &result));
     iterator.release();

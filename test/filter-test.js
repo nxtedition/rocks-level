@@ -76,17 +76,35 @@ test('keyFilter and valueFilter combined', async function (t) {
   t.equal(entries[0][1], 'admin', 'value matches')
 })
 
-// TODO: keyFilter + limit without reverse has a bug - limit is applied before filter
-// test('keyFilter with limit', async function (t) {
-//   const entries = await db.iterator({
-//     keyFilter: '^user:',
-//     limit: 2
-//   }).all()
-//
-//   t.equal(entries.length, 2, 'should return 2 entries')
-//   t.equal(entries[0][0], 'user:1', 'first key matches')
-//   t.equal(entries[1][0], 'user:2', 'second key matches')
-// })
+// Regression: `limit` must count matched (post-filter) rows, not rows merely
+// scanned. The fixture sorts log:*/post:* before user:*, so a forward scan hits
+// non-matching keys first; before the fix those consumed the limit and this
+// returned []. See the filter-before-Increment ordering in binding.cc nextv.
+test('keyFilter with limit (limit counts matches, not scanned rows)', async function (t) {
+  const entries = await db.iterator({
+    keyFilter: '^user:',
+    limit: 2
+  }).all()
+
+  t.equal(entries.length, 2, 'should return 2 entries')
+  t.equal(entries[0][0], 'user:1', 'first key matches')
+  t.equal(entries[1][0], 'user:2', 'second key matches')
+})
+
+test('valueFilter with limit counts matches, not scanned rows', async function (t) {
+  // Values containing "error:" are only on log:error:1 / log:error:2, which sort
+  // first; but verify a limit larger than 1 still returns matches and not an
+  // early empty result when non-matching rows precede matches.
+  const entries = await db.iterator({
+    keyFilter: '^user:',
+    valueFilter: 'admin|bob',
+    limit: 2
+  }).all()
+
+  t.equal(entries.length, 2, 'should return 2 entries (user:2=bob, user:3=admin)')
+  t.equal(entries[0][0], 'user:2', 'first match is user:2')
+  t.equal(entries[1][0], 'user:3', 'second match is user:3')
+})
 
 test('valueFilter with limit', async function (t) {
   const entries = await db.iterator({

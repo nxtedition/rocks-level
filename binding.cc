@@ -440,6 +440,11 @@ struct BaseIterator : public Closable {
     return iterator_->status();
   }
 
+  rocksdb::Status Refresh() {
+    assert(iterator_);
+    return iterator_->Refresh();
+  }
+
   Database* database_;
   rocksdb::ColumnFamilyHandle* column_;
 
@@ -506,6 +511,11 @@ class Iterator final : public BaseIterator {
   void Seek(const rocksdb::Slice& target) override {
     first_ = true;
     return BaseIterator::Seek(target);
+  }
+
+  rocksdb::Status Refresh() override {
+    first_ = true;
+    return BaseIterator::Refresh();
   }
 
   static std::unique_ptr<Iterator> create(napi_env env, napi_value db, napi_value options) {
@@ -1819,6 +1829,22 @@ NAPI_METHOD(iterator_init_sync) {
   return result;
 }
 
+NAPI_METHOD(iterator_refresh_sync) {
+  NAPI_ARGV(1);
+
+  try {
+    Iterator* iterator;
+    NAPI_STATUS_THROWS(napi_get_value_external(env, argv[0], reinterpret_cast<void**>(&iterator)));
+
+    ROCKS_STATUS_THROWS_NAPI(iterator->Refresh());
+  } catch (const std::exception& e) {
+    napi_throw_error(env, nullptr, e.what());
+    return nullptr;
+  }
+
+  return 0;
+}
+
 NAPI_METHOD(iterator_seek) {
   NAPI_ARGV(3);
 
@@ -2367,6 +2393,7 @@ NAPI_INIT() {
   NAPI_EXPORT_FUNCTION(db_flush_wal);
 
   NAPI_EXPORT_FUNCTION(iterator_init_sync);
+  NAPI_EXPORT_FUNCTION(iterator_refresh_sync);
   NAPI_EXPORT_FUNCTION(iterator_seek);
   NAPI_EXPORT_FUNCTION(iterator_seek_sync);
   NAPI_EXPORT_FUNCTION(iterator_close_sync);

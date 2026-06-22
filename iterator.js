@@ -126,6 +126,18 @@ class Iterator extends AbstractIterator {
 
   // nxt API
 
+  _refreshSync () {
+    assert(this[kContext])
+    assert(!this[kBusy])
+
+    this[kFirst] = true
+    this[kCache] = kEmpty
+    this[kFinished] = false
+    this[kPosition] = 0
+
+    binding.iterator_refresh_sync(this[kContext])
+  }
+
   _seekSync (target) {
     assert(this[kContext])
     assert(!this[kBusy])

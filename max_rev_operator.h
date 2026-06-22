@@ -6,6 +6,21 @@
 
 #include <iostream>
 
+// Compares two length-prefixed revision operands and returns <0, 0, >0.
+//
+// This MUST stay byte-for-byte order-compatible with the in-memory JS comparator
+// (@nxtedition/util compareRev, lib/packages/util/src/compare-rev.ts), because
+// RocksDB selects the durable winner with this operator while the application
+// compares the same revisions in memory with the JS one — if they disagree, the
+// stored "max revision" diverges from what the app believes is the max. A 500k
+// randomized fuzz (leading zeros, INF, length ties, missing dashes) confirms
+// parity. Revisions are `<number>-<id>` (e.g. `12-7a00`, `INF-…`) compared as:
+//   1. INF sentinel: a number beginning with 'I' is +infinity (largest).
+//   2. leading zeros are skipped so `01-x` == `1-x` in magnitude.
+//   3. the number is compared digit-by-digit, terminated by '-'; the side whose
+//      number ends first (fewer significant digits) is smaller.
+//   4. then the id is compared bytewise; finally the zero-stripped length breaks
+//      ties (a longer number = larger revision).
 int compareRev(const rocksdb::Slice& a, const rocksdb::Slice& b) {
   if (a.empty()) {
     return b.empty() ? 0 : -1;
@@ -22,14 +37,35 @@ int compareRev(const rocksdb::Slice& a, const rocksdb::Slice& b) {
   const std::size_t endA = 1 + std::min<std::size_t>(static_cast<unsigned char>(a[0]), a.size() - 1);
   const std::size_t endB = 1 + std::min<std::size_t>(static_cast<unsigned char>(b[0]), b.size() - 1);
 
+  // INF-XXXX sorts above every numeric revision. Mirror the JS comparator's
+  // explicit sentinel rather than relying on 'I' (0x49) happening to exceed the
+  // digit bytes.
+  const bool infA = indexA < endA && a[indexA] == 'I';
+  const bool infB = indexB < endB && b[indexB] == 'I';
+  if (infA != infB) {
+    return infA ? 1 : -1;
+  }
+
+  // Skip leading zeroes, tracking the zero-stripped content length for the final
+  // tiebreak, so `01-x` and `1-x` compare as the same magnitude.
+  std::size_t lenA = endA - indexA;
+  std::size_t lenB = endB - indexB;
+  while (indexA < endA && a[indexA] == '0') {
+    ++indexA;
+    --lenA;
+  }
+  while (indexB < endB && b[indexB] == '0') {
+    ++indexB;
+    --lenB;
+  }
+
   // Compare the revision number. Compare bytes as unsigned char: rocksdb::Slice
   // operator[] returns (signed-on-most-platforms) char, so a byte >= 0x80 would
   // otherwise sort as negative and order opposite to the JS comparator, which
   // reads bytes as unsigned (Buffer[i] in 0..255). Keeping both sides unsigned
   // ensures the in-memory ordering and this durable maxRev merge agree.
   auto result = 0;
-  const auto end = std::min(endA, endB);
-  while (indexA < end && indexB < end) {
+  while (indexA < endA && indexB < endB) {
     const unsigned char ac = static_cast<unsigned char>(a[indexA++]);
     const unsigned char bc = static_cast<unsigned char>(b[indexB++]);
 
@@ -52,7 +88,7 @@ int compareRev(const rocksdb::Slice& a, const rocksdb::Slice& b) {
   }
 
   // Compare the rest (unsigned, for the same reason as the loop above).
-  while (indexA < end && indexB < end) {
+  while (indexA < endA && indexB < endB) {
     const unsigned char ac = static_cast<unsigned char>(a[indexA++]);
     const unsigned char bc = static_cast<unsigned char>(b[indexB++]);
     if (ac != bc) {
@@ -60,7 +96,7 @@ int compareRev(const rocksdb::Slice& a, const rocksdb::Slice& b) {
     }
   }
 
-  return static_cast<int>(endA) - static_cast<int>(endB);
+  return static_cast<int>(lenA) - static_cast<int>(lenB);
 }
 
 class MaxRevOperator : public rocksdb::MergeOperator {

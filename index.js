@@ -224,7 +224,11 @@ class RocksLevel extends AbstractLevel {
     callback = fromCallback(callback, kPromise)
 
     try {
-      // TODO (fix): Use batch + DeleteRange...
+      // TODO (perf): db_clear is a synchronous native call that blocks the event
+      // loop. The whole-range (limit === -1) path is a single DeleteRange (cheap),
+      // but the limited path iterates + writes WriteBatches on the JS thread, and
+      // neither is ref-counted against close(). Move to an async binding
+      // (runAsync) that takes a kRef like the other ops.
       binding.db_clear(this[kContext], options ?? kEmpty)
       process.nextTick(callback, null)
     } catch (err) {

@@ -908,7 +908,19 @@ NAPI_METHOD(db_init) {
     database = reinterpret_cast<Database*>(value);
     NAPI_STATUS_THROWS(napi_create_external(env, database, nullptr, nullptr, &result));
 
-    // We should have an env_cleanup_hook for closing iterators...
+    // TODO (critical, lifetime): sharing a Database* across V8 environments (e.g.
+    // worker_threads) via db_get_handle is unsafe. There is no cross-env
+    // reference count on the rocksdb::DB, so one env's db_close() runs
+    // Database::Close() (freeing the DB + column handles on a worker thread)
+    // while another env may still be running MultiGet / iterator / updates
+    // against it -> use-after-free / double-free. This branch also installs no
+    // env_cleanup_hook or finalizer, so a tearing-down secondary env never
+    // detaches its iterators, and GetResourceName() dereferences a napi_ref
+    // (resourceNamesRef) that belongs to the originating env (cross-env ref use
+    // is undefined behaviour). Fix: refcount the Database lifetime across all
+    // wrapping envs (run the real Close()/db.reset() only when the last
+    // reference drops), install a cleanup hook here, and make resource names
+    // per-env. Until then, close() on a shared handle must be app-coordinated.
   } else {
     NAPI_STATUS_THROWS(napi_invalid_arg);
   }
@@ -1740,6 +1752,10 @@ NAPI_METHOD(db_clear) {
       *end.GetSelf() = std::move(*lt);
     } else {
       // HACK: Assume no key that starts with 0xFF is larger than 1MiB.
+      // TODO (correctness): this synthetic upper bound silently leaves any key
+      // >= a 1 MiB run of 0xFF bytes uncleared. Prefer DeleteRange over the full
+      // keyspace (null end) or RangeBound::kInclusive on the max key instead of
+      // assuming a bound.
       end.GetSelf()->resize(1e6);
       memset(end.GetSelf()->data(), 255, end.GetSelf()->size());
     }

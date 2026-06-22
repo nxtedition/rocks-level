@@ -83,6 +83,28 @@ test('close() while an async iterator nextv is in flight', async function (t) {
 // teardown and the Database::Close() that resets the log iterator on a worker
 // thread.
 
+test('close() waits for in-flight getMany', async function (t) {
+  for (let i = 0; i < ITERATIONS; i++) {
+    const db = testCommon.factory()
+    await db.open()
+    await seed(db, 200)
+    const keys = Array.from({ length: 200 }, (_, j) => 'k' + j)
+    const reads = []
+    for (let j = 0; j < 8; j++) {
+      reads.push(db.getMany(keys))
+    }
+    await db.close()
+    const results = await Promise.all(reads.map((p) => p.catch(() => null)))
+    // Every read ran against a live db: it either completed or was cleanly
+    // rejected, never crashed on freed memory.
+    for (const r of results) {
+      if (r != null) t.equal(r.length, 200, 'getMany returned all rows')
+    }
+  }
+  t.pass('survived getMany+close')
+  t.end()
+})
+
 test('close() while an updates read is in flight', async function (t) {
   for (let i = 0; i < ITERATIONS; i++) {
     const db = testCommon.factory()

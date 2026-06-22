@@ -9,6 +9,7 @@
 #include <rocksdb/status.h>
 
 #include <array>
+#include <memory>
 #include <optional>
 #include <string>
 
@@ -439,9 +440,18 @@ napi_status Convert(napi_env env,
                     bool unsafe = false) {
   if (encoding == Encoding::Buffer) {
     if (unsafe) {
-      auto s2 = new rocksdb::PinnableSlice(std::move(s));
-      return napi_create_external_buffer(env, s2->size(), const_cast<char*>(s2->data()),
-                                         Finalize<rocksdb::PinnableSlice>, s2, &result);
+      // The heap PinnableSlice is owned by the finalizer, which N-API only
+      // registers when the external buffer is created successfully. Hold it in a
+      // unique_ptr and release ownership only on success, so a failed
+      // napi_create_external_buffer does not leak it (and the block/memtable
+      // region it pinned).
+      auto s2 = std::make_unique<rocksdb::PinnableSlice>(std::move(s));
+      const auto status = napi_create_external_buffer(env, s2->size(), const_cast<char*>(s2->data()),
+                                                      Finalize<rocksdb::PinnableSlice>, s2.get(), &result);
+      if (status == napi_ok) {
+        s2.release();
+      }
+      return status;
     } else {
       return napi_create_buffer_copy(env, s.size(), s.data(), nullptr, &result);
     }
